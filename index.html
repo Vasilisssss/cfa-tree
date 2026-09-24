@@ -4,11 +4,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0e1320">
-<title>CFA Study Tree</title>
+<title>CFA Study Notes</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="CFA Tree">
+<meta name="apple-mobile-web-app-title" content="CFA Notes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -448,7 +448,7 @@ function drawTabs(){
   const add=document.createElement("button");
   add.id="newTab";add.textContent="+ New topic";
   add.addEventListener("click",newTopic);bar.appendChild(add);
-  document.getElementById("title").textContent=ROOT()?ROOT().n:"CFA Study Tree";}
+  document.getElementById("title").textContent=ROOT()?ROOT().n:"CFA Study Notes";}
 
 function switchTopic(i){if(i===LIB.active)return;
   LIB.active=i;SEL=null;HITS=null;
