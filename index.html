@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e1320">
+<title>CFA Study Tree</title>
+<style>
+:root{
+  --bg:#0e1320; --panel:#161d2e; --edge:#2c3852; --txt:#e8edf7; --muted:#9fb0cc;
+  --c0:#f5b301; --c1:#4cc9f0; --c2:#7ee787; --c3:#ff9f6b; --c4:#c8a2ff; --c5:#ff8fb1;
+  --topH:118px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+  overscroll-behavior:none;touch-action:none;
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+
+/* ---------- top bar ---------- */
+#top{position:absolute;top:0;left:0;right:0;z-index:6;background:#111828f7;
+  border-bottom:1px solid var(--edge);padding:7px 12px;
+  padding-top:calc(7px + env(safe-area-inset-top))}
+.titlerow{display:flex;align-items:center;gap:8px}
+h1{margin:0;font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#burger{display:none}
+
+#tabs{display:flex;gap:5px;margin-top:6px;align-items:center;overflow-x:auto;
+  padding-bottom:3px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+#tabs::-webkit-scrollbar{height:4px}
+#tabs::-webkit-scrollbar-thumb{background:#2c3852;border-radius:4px}
+.tab{display:flex;align-items:center;gap:6px;background:var(--panel);
+  border:1px solid var(--edge);border-bottom:2px solid transparent;
+  padding:7px 12px;border-radius:8px 8px 0 0;font-size:12.5px;cursor:pointer;
+  white-space:nowrap;color:var(--muted)}
+.tab.active{color:var(--txt);background:#1d2740;border-bottom-color:var(--c0)}
+.tab .cnt{font-size:9.5px;opacity:.65;border:1px solid var(--edge);border-radius:10px;padding:0 5px}
+.tab .x{font-size:15px;line-height:1;opacity:.45;padding:0 2px}
+.tab .x:active{opacity:1;color:#ff8fb1}
+#newTab{background:transparent;border:1px dashed #44567c;color:var(--c2);
+  padding:7px 12px;border-radius:8px;font-size:12.5px;white-space:nowrap}
+
+.bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.sep{width:1px;height:19px;background:var(--edge);margin:0 2px}
+button{background:var(--panel);color:var(--txt);border:1px solid var(--edge);
+  padding:6px 10px;border-radius:7px;font-size:11.5px;cursor:pointer;white-space:nowrap;
+  font-family:inherit;min-height:32px}
+button:active{background:#243050}
+button:disabled{opacity:.33}
+button.go{border-color:var(--c2);color:var(--c2)}
+input[type=search]{background:var(--panel);color:var(--txt);border:1px solid var(--edge);
+  padding:6px 10px;border-radius:7px;font-size:12px;min-width:150px;font-family:inherit;min-height:32px}
+.legend{margin-left:auto;font-size:10px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+
+/* ---------- canvas ---------- */
+#stage{position:absolute;inset:0;width:100%;height:100%;background:var(--bg);
+  touch-action:none;cursor:grab}
+#stage.drag{cursor:grabbing}
+text{pointer-events:none;user-select:none}
+.node{cursor:pointer}
+.dim{opacity:.12}
+.sel{filter:drop-shadow(0 0 8px #ffffffaa)}
+.hitpad{fill:transparent}
+
+/* ---------- floating zoom dock ---------- */
+#zoom{position:absolute;right:13px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:7;
+  display:flex;flex-direction:column;gap:7px}
+#zoom button{width:46px;height:46px;border-radius:13px;font-size:20px;padding:0;
+  background:#1a2338ee;border:1px solid #3a4a68;backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;line-height:1}
+#zoom button.sm{font-size:11px;font-weight:600}
+#zPct{text-align:center;font-size:10.5px;color:var(--muted);background:#1a2338cc;
+  border:1px solid var(--edge);border-radius:9px;padding:3px 0}
+
+/* ---------- edit panel ---------- */
+#side{position:absolute;top:calc(var(--topH) + 8px);right:13px;bottom:13px;width:330px;z-index:8;
+  background:#131b2bf7;border:1px solid var(--edge);border-radius:12px;padding:13px;
+  display:flex;flex-direction:column;gap:9px;overflow:auto;backdrop-filter:blur(5px);
+  touch-action:auto}
+#side.hide{display:none}
+#side h3{margin:0;font-size:12px;color:var(--c0);letter-spacing:.5px;text-transform:uppercase;
+  display:flex;align-items:center}
+#closeSide{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;
+  padding:0 4px;min-height:auto}
+.path{font-size:10.5px;color:var(--muted);line-height:1.45}
+label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+#tName,#tNote{width:100%;background:#0b1020;color:var(--txt);border:1px solid var(--edge);
+  border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical}
+#tNote{min-height:150px;line-height:1.55}
+.hint{font-size:10.5px;color:var(--muted);line-height:1.55}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radius:4px;
+  font-size:11.5px;color:#ffd580}
+
+#toast{position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(20px + env(safe-area-inset-bottom));z-index:9;
+  background:#1d2740;border:1px solid var(--c2);color:var(--c2);padding:8px 16px;
+  border-radius:20px;font-size:12.5px;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;color:var(--muted);font-size:14px;z-index:2;pointer-events:none;
+  text-align:center;padding:0 30px}
+
+/* ---------- tablet / phone ---------- */
+@media (max-width:1100px){
+  :root{--topH:112px}
+  #burger{display:inline-flex;background:var(--panel);border:1px solid var(--edge);
+    color:var(--txt);border-radius:7px;padding:6px 11px;font-size:12px}
+  .bar{display:none;max-height:none}
+  .bar.open{display:flex}
+  .legend{display:none}
+  #side{left:13px;width:auto;top:auto;height:52vh;bottom:13px;border-radius:14px}
+  #zoom{bottom:calc(16px + env(safe-area-inset-bottom))}
+  #side:not(.hide) ~ #zoom{bottom:calc(54vh + 16px)}
+  button,#newTab{min-height:38px;font-size:12.5px}
+  .tab{padding:9px 13px;font-size:13px}
+  #tNote{min-height:110px}
+}
+@media (max-width:620px){
+  h1{font-size:13px}
+  #side{height:58vh}
+  #side:not(.hide) ~ #zoom{bottom:calc(60vh + 12px)}
+  #zoom button{width:42px;height:42px}
+}
+
+/* ---------- sync pill ---------- */
+#sync{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);
+  border:1px solid var(--edge);border-radius:20px;padding:4px 10px;white-space:nowrap;cursor:default}
+#sync i{width:7px;height:7px;border-radius:50%;background:#5b6b8a;display:inline-block}
+#sync.ok i{background:var(--c2)} #sync.busy i{background:var(--c0);animation:pulse 1s infinite}
+#sync.off i{background:var(--c3)}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){#sync.busy i{animation:none}}
+/* ---------- in-page dialog (replaces browser prompt/confirm) ---------- */
+#dlg{position:fixed;inset:0;z-index:20;background:#05080fcc;display:none;align-items:center;
+  justify-content:center;padding:20px;touch-action:auto}
+#dlg.show{display:flex}
+#dlg .box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;
+  width:min(420px,100%);display:flex;flex-direction:column;gap:12px}
+#dlg p{margin:0;font-size:13.5px;line-height:1.5;white-space:pre-line}
+#dlg input{background:#0b1020;color:var(--txt);border:1px solid var(--edge);border-radius:8px;
+  padding:10px;font-size:14px;font-family:inherit;width:100%}
+#dlg .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#dlg .row button{min-width:90px;min-height:38px}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="titlerow">
+    <h1 id="title">CFA Study Tree</h1>
+    <span id="sync" title="Sync status"><i></i><span id="syncTxt">Starting…</span></span>
+    <button id="signIn" class="go" style="display:none" onclick="Sync.signIn()">Sign in to sync</button>
+    <button id="burger" onclick="document.querySelector('.bar').classList.toggle('open')">Menu ▾</button>
+  </div>
+
+  <div id="tabs"></div>
+
+  <div class="bar">
+    <button onclick="setLevel(1)">L1</button>
+    <button onclick="setLevel(2)">L2</button>
+    <button onclick="setLevel(3)">L3</button>
+    <button onclick="setLevel(99)">All</button>
+    <span class="sep"></span>
+    <button onclick="addNode('child')" id="bChild">+ Child</button>
+    <button onclick="addNode('sibling')" id="bSib">+ Sibling</button>
+    <button onclick="delNode()" id="bDel">Delete</button>
+    <button onclick="move(-1)" id="bL" title="Move left among its siblings">◀</button>
+    <button onclick="move(1)" id="bR" title="Move right among its siblings">▶</button>
+    <span class="sep"></span>
+    <button onclick="outdent()" id="bOut" title="Move up one level">⇤ Outdent</button>
+    <button onclick="indent()" id="bIn" title="Nest under the node above it" disabled="">Indent ⇥</button>
+    <button onclick="markMove()" id="bPick" title="Pick this node up">✋ Pick up</button>
+    <button onclick="dropInto()" id="bDrop" class="go" title="Drop the picked node inside the selected one" disabled="">⤵ Drop into</button>
+    <span class="sep"></span>
+    <button onclick="undo()" id="bU">Undo</button>
+    <span class="sep"></span>
+    <button onclick="renameTopic()">Rename</button>
+    <button onclick="duplicateTopic()">Duplicate</button>
+    <span class="sep"></span>
+        <button onclick="exportAll()">Export all</button>
+    <button onclick="document.getElementById('fIn').click()">Import</button>
+    <button onclick="saveSVG()">SVG</button>
+    <button onclick="resetAll()">Reset</button>
+    <button id="signOut" style="display:none" onclick="Sync.signOut()">Sign out</button>
+    <input type="file" id="fIn" accept=".json" style="display:none" onchange="importJSON(event)">
+    <input type="search" id="q" placeholder="Search this topic…" oninput="doSearch(this.value)">
+    <div class="legend">
+      <span><i class="dot" style="background:var(--c0)"></i>Topic</span>
+      <span><i class="dot" style="background:var(--c1)"></i>Reading</span>
+      <span><i class="dot" style="background:var(--c2)"></i>Section</span>
+      <span><i class="dot" style="background:var(--c3)"></i>Concept</span>
+      <span><i class="dot" style="background:var(--c4)"></i>Detail</span>
+    </div>
+  </div>
+</div>
+
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" class="">
+  <g id="world"><g id="links"></g><g id="nodes"></g><g id="overlay"></g></g>
+</svg>
+
+<div id="empty" style="display: none;"><div>This topic is empty.</div><div style="font-size:12px">Tap the root node, then <b>+ Child</b>, to start building.</div></div>
+
+<div id="zoom">
+  <div id="zPct">100%</div>
+  <button onclick="zoomBy(1.25)" title="Zoom in">+</button>
+  <button onclick="zoomBy(0.8)" title="Zoom out">−</button>
+  <button class="sm" onclick="fit()" title="Fit everything on screen">FIT</button>
+</div>
+
+<div id="side" class="hide">
+  <h3>Edit node <button id="closeSide" onclick="closeSide()">×</button></h3>
+  <div class="path" id="sPath"></div>
+  <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
+  <div><label>Note / explanation</label><textarea id="tNote" oninput="onEdit()" style="height: 469px;"></textarea></div>
+  <div class="grid">
+    <button onclick="addNode('child')">+ Child</button>
+    <button onclick="addNode('sibling')">+ Sibling</button>
+    <button onclick="outdent()">⇤ Outdent</button>
+    <button onclick="indent()">Indent ⇥</button>
+    <button onclick="move(-1)">◀ Move</button>
+    <button onclick="move(1)">Move ▶</button>
+    <button onclick="markMove()">✋ Pick up</button>
+    <button class="go" onclick="dropInto()">⤵ Drop into</button>
+  </div>
+  <div id="clipbar" style="display: none; font-size: 11px; color: rgb(126, 231, 135); border: 1px solid rgb(44, 56, 82); border-radius: 8px; padding: 7px 9px; line-height: 1.45;">
+    <span id="clipTxt"></span>
+    <button style="margin-top:6px;width:100%" onclick="cancelMove()">Cancel move</button>
+  </div>
+  <div class="hint">
+    <b>On a tablet:</b> drag with one finger to pan, pinch with two to zoom. Double-tap the background to fit everything.<br><br>
+    <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
+    For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
+    <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
+    Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
+  </div>
+</div>
+
+<div id="toast" class="">Deleted</div>
+<div id="dlg"><div class="box"><p id="dlgMsg"></p><input id="dlgIn"><div class="row"><button id="dlgNo">Cancel</button><button id="dlgYes" class="go">OK</button></div></div></div>
+
+<script id="seed" type="application/json">{"v": 3, "stamp": "seed-original", "topics": [{"n": "My First Topic", "d": "Sign in to load your synced notes, or tap the root node and + Child to start.", "open": true, "c": []}]}</script>
+<script>
+/* ================= LAYOUT CORE ================= */
+const NW=[250,215,190,178,170,165], GAPX=24, VGAP=[90,80,72,66,62,60];
+const FILL=["#3a2d05","#0e2f3d","#12321c","#3a2313","#2b1f42","#3a1526"];
+const STK =["#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1"];
+const TXC =["#ffd980","#a9e6fb","#b9f0c2","#ffcaab","#ddc9ff","#ffc2d4"];
+const MINZ=0.06, MAXZ=4;
+
+function prep(root){let id=0;(function w(n,d,p){n.id=id++;n.depth=d;n.parent=p;
+  if(n.open===undefined)n.open=d<2;if(!Array.isArray(n.c))n.c=[];
+  n.c.forEach(k=>w(k,d+1,n));})(root,0,null);return id;}
+
+function wrapText(t,wpx,fs){const max=Math.max(6,Math.floor(wpx/(fs*0.55)));
+  const words=String(t).split(/\s+/),lines=[];let cur="";
+  for(const w of words){if(!cur){cur=w;continue;}
+    if((cur+" "+w).length<=max)cur+=" "+w;else{lines.push(cur);cur=w;}}
+  if(cur)lines.push(cur);return lines.length?lines:[""];}
+
+function layout(root){const rows={};let cursor=0;
+  (function m(n){const d=Math.min(n.depth,NW.length-1);
+    const fs=n.depth===0?15:n.depth===1?13.5:12.5;
+    n.w=NW[d];n.fs=fs;n.lines=wrapText(n.n,n.w-24,fs);
+    n.h=Math.max(40,n.lines.length*(fs+4)+20);
+    const kids=(n.open&&n.c.length)?n.c:[];
+    if(!kids.length){n.x=cursor+n.w/2;cursor+=n.w+GAPX;}
+    else{kids.forEach(m);n.x=(kids[0].x+kids[kids.length-1].x)/2;
+      const need=n.x+n.w/2+GAPX;if(need>cursor)cursor=need;}
+    (rows[n.depth]=rows[n.depth]||[]).push(n);})(root);
+  let y=30;
+  Object.keys(rows).map(Number).sort((a,b)=>a-b).forEach(d=>{
+    const mh=Math.max(...rows[d].map(n=>n.h));
+    rows[d].forEach(n=>n.y=y);
+    y+=mh+VGAP[Math.min(d,VGAP.length-1)];});}
+
+function visibleNodes(root){const o=[];(function w(n){o.push(n);if(n.open)n.c.forEach(w);})(root);return o;}
+function bbox(ns){let a=Infinity,b=-Infinity,c=Infinity,e=-Infinity;
+  ns.forEach(n=>{a=Math.min(a,n.x-n.w/2);b=Math.max(b,n.x+n.w/2);
+    c=Math.min(c,n.y);e=Math.max(e,n.y+n.h);});
+  return{x0:a,y0:c,w:b-a,h:e-c};}
+function countNodes(root){let k=0;(function w(n){k++;(n.c||[]).forEach(w);})(root);return k;}
+
+/* ================= LIBRARY STATE ================= */
+const NS="http://www.w3.org/2000/svg";
+const KEY="cfa_trees_v2",OLDKEY="cme_tree_v1",STAMPKEY="cfa_trees_stamp";
+let LIB={topics:[],active:0},SEL=null,HITS=null,HIST=[];
+
+function readSeed(){try{const o=JSON.parse(document.getElementById("seed").textContent);
+  if(o&&Array.isArray(o.topics)&&o.topics.length)return o;}catch(e){}
+  return{stamp:"seed-original",topics:[]};}
+const SEED=readSeed();
+const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
+
+function clone(n){return{n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};}
+function ROOT(){return LIB.topics[LIB.active];}
+function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
+function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
+  try{return new Date(Number(m[1])).toLocaleString();}catch(e){return null;}}
+
+function load(){
+  try{const c=localStorage.getItem(KEY);
+    if(c){const o=JSON.parse(c);
+      if(o&&Array.isArray(o.topics)&&o.topics.length)
+        return{topics:o.topics,active:Math.min(o.active|0,o.topics.length-1)};}}catch(e){}
+  return{topics:JSON.parse(JSON.stringify(SEED.topics.length?SEED.topics:[blankTopic()])),active:0};}
+
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify({v:2,active:LIB.active,topics:LIB.topics.map(clone)}));}catch(e){}
+  Sync.changed();}
+
+/* ================= CLOUD SYNC (Firebase) ================= */
+const Sync=(function(){
+  const DEV=(()=>{let d=null;try{d=localStorage.getItem("cfa_device");}catch(e){}
+    if(!d){d=Math.random().toString(36).slice(2,10);try{localStorage.setItem("cfa_device",d);}catch(e){}}return d;})();
+  const META="cfa_sync_meta";
+  let FB=null,uid=null,unsub=null,timer=null,saving=false,again=false,pendingRemote=null,lastJSON=null;
+  let meta={base:0,dirty:false,uid:null};try{Object.assign(meta,JSON.parse(localStorage.getItem(META)||"{}"));}catch(e){}
+  function saveMeta(){try{localStorage.setItem(META,JSON.stringify(meta));}catch(e){}}
+  function pill(cls,txt){document.getElementById("sync").className=cls;
+    document.getElementById("syncTxt").textContent=txt;}
+  function btns(signedIn){document.getElementById("signIn").style.display=signedIn||!FB?"none":"";
+    document.getElementById("signOut").style.display=signedIn?"":"none";}
+  const topicsJSON=()=>JSON.stringify(LIB.topics.map(clone));
+  const when=t=>{try{return new Date(t).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});}catch(e){return"";}};
+  const typing=()=>/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||"");
+
+  function changed(){meta.dirty=true;saveMeta();if(!uid)return;
+    pill("busy","Saving…");clearTimeout(timer);timer=setTimeout(()=>{timer=null;push();},900);}
+
+  async function push(){
+    if(!uid)return;if(saving){again=true;return;}
+    const json=topicsJSON();
+    if(json===lastJSON){meta.dirty=false;saveMeta();pill("ok","Synced");return;}
+    if(json.length>900000){pill("off","Too large to sync");toast("Notes too large to sync — split a topic");return;}
+    saving=true;const now=Date.now();
+    try{await FB.save(uid,{v:4,topics:json,updatedAt:now,device:DEV});
+      lastJSON=json;meta.base=now;meta.dirty=false;saveMeta();pill("ok","Synced");}
+    catch(e){console.warn(e);pill("off",navigator.onLine?"Sync error — retrying":"Offline — saved here");
+      setTimeout(push,3000+Math.random()*2000);}
+    saving=false;if(again){again=false;push();}}
+
+  function apply(d){
+    let topics;try{topics=JSON.parse(d.topics);}catch(e){return;}
+    if(!Array.isArray(topics)||!topics.length)return;
+    lastJSON=d.topics;meta.base=d.updatedAt||0;meta.dirty=false;saveMeta();
+    const selPath=SEL?pathOf(SEL):null;
+    LIB.topics=topics;LIB.active=Math.min(LIB.active,topics.length-1);
+    try{localStorage.setItem(KEY,JSON.stringify({v:2,active:LIB.active,topics:LIB.topics.map(clone)}));}catch(e){}
+    HITS=null;prep(ROOT());drawTabs();draw();
+    const back=selPath?nodeAt(selPath):null;
+    if(back){SEL=back;select(back);}else{SEL=null;closeSide();draw();}
+    pill("ok","Synced");}
+
+  function onRemote(d){
+    if(!d)return;
+    if(d.device===DEV&&d.topics===lastJSON)return;
+    if((d.updatedAt||0)<=meta.base)return;
+    if(timer||saving)return;
+    if(typing()){pendingRemote=d;return;}
+    apply(d);toast("Updated from another device");}
+  document.addEventListener("focusout",()=>setTimeout(()=>{
+    if(pendingRemote&&!typing()&&!timer&&!saving){const d=pendingRemote;pendingRemote=null;
+      if((d.updatedAt||0)>meta.base){apply(d);toast("Updated from another device");}}},50));
+
+  async function connect(user){
+    uid=user.uid;btns(true);pill("busy","Connecting…");
+    if(meta.uid&&meta.uid!==uid){meta.base=0;meta.dirty=false;}   /* different account */
+    meta.uid=uid;saveMeta();
+    let d;try{d=await FB.load(uid);}catch(e){console.warn(e);pill("off","Can't reach database");return;}
+    if(!d){await push();}                                    /* first sign-in: upload */
+    else{
+      const cloudNewer=(d.updatedAt||0)>meta.base;
+      if(d.topics===topicsJSON()){lastJSON=d.topics;meta.base=d.updatedAt||0;meta.dirty=false;saveMeta();pill("ok","Synced");}
+      else if(!meta.dirty){apply(d);}
+      else if(!cloudNewer){await push();}
+      else{
+        const keepCloud=await ask("This device has edits that were never synced, and another device saved changes on "+
+          when(d.updatedAt)+".\n\nWhich version do you want to keep?",{ok:"Use synced version",cancel:"Keep this device's"});
+        if(keepCloud){snapshot();apply(d);toast("Loaded the synced version (Undo restores yours)");}
+        else{meta.base=d.updatedAt||0;await push();}}}
+    if(unsub)unsub();
+    unsub=FB.watch(uid,onRemote,()=>pill("off","Offline — will retry"));}
+
+  function disconnect(){if(unsub){unsub();unsub=null;}uid=null;btns(false);
+    pill("off",FB?"Not signed in — saved here only":"Sync not set up");}
+
+  function start(){
+    if(window.FB_API)init(window.FB_API);
+    else window.addEventListener("fb-ready",e=>init(e.detail),{once:true});
+    setTimeout(()=>{if(!FB)disconnect();},6000);}
+  function init(api){
+    if(!api){FB=null;disconnect();return;}
+    FB=api;pill("busy","Checking sign-in…");
+    FB.onAuth(u=>u?connect(u):disconnect());
+    window.addEventListener("online",()=>{if(uid&&meta.dirty)push();});
+    window.addEventListener("pagehide",()=>{if(timer){clearTimeout(timer);timer=null;push();}});}
+  async function signIn(){try{await FB.signIn();}catch(e){console.warn(e);
+    info("Sign-in didn't work: "+(e&&e.code||e)+"\n\nIf it says unauthorized-domain, add this site's address under Firebase → Authentication → Settings → Authorized domains.");}}
+  async function signOut(){if(!await ask("Sign out on this device? Your notes stay safe in the cloud.",{ok:"Sign out"}))return;
+    await FB.signOut();}
+  return{changed,start,signIn,signOut};})();
+
+function pathOf(n){const p=[];let c=n;while(c.parent){p.unshift(c.parent.c.indexOf(c));c=c.parent;}return p;}
+function nodeAt(p){let n=ROOT();for(const i of p){if(!n||!n.c[i])return null;n=n.c[i];}return n;}
+
+/* ================= DIALOG ================= */
+function ask(msg,o){o=o||{};return new Promise(res=>{
+  const d=document.getElementById("dlg"),inp=document.getElementById("dlgIn"),
+        y=document.getElementById("dlgYes"),n=document.getElementById("dlgNo");
+  document.getElementById("dlgMsg").textContent=msg;
+  y.textContent=o.ok||"OK";n.textContent=o.cancel||"Cancel";
+  const isInput=o.input!==undefined;inp.style.display=isInput?"":"none";inp.value=isInput?o.input:"";
+  d.classList.add("show");setTimeout(()=>(isInput?(inp.focus(),inp.select()):y.focus()),30);
+  function done(v){d.classList.remove("show");y.onclick=n.onclick=inp.onkeydown=null;res(v);}
+  y.onclick=()=>done(isInput?inp.value:true);n.onclick=()=>done(isInput?null:false);
+  inp.onkeydown=e=>{if(e.key==="Enter")done(inp.value);if(e.key==="Escape")done(null);};});}
+function info(msg){return ask(msg,{ok:"OK",cancel:"Close"});}
+
+function snapshot(){HIST.push(JSON.stringify({active:LIB.active,topics:LIB.topics.map(clone)}));
+  if(HIST.length>40)HIST.shift();}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;
+  t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1700);}
+
+/* ================= TABS ================= */
+function shortName(s){s=String(s).replace(/\s+/g," ").trim();
+  return s.length>28?s.slice(0,27)+"…":s;}
+function drawTabs(){
+  const bar=document.getElementById("tabs");bar.textContent="";
+  LIB.topics.forEach((t,i)=>{
+    const el=document.createElement("div");
+    el.className="tab"+(i===LIB.active?" active":"");el.title=t.n;
+    const l=document.createElement("span");l.textContent=shortName(t.n);
+    const c=document.createElement("span");c.className="cnt";c.textContent=countNodes(t);
+    el.appendChild(l);el.appendChild(c);
+    if(LIB.topics.length>1){const x=document.createElement("span");
+      x.className="x";x.textContent="×";
+      x.addEventListener("click",ev=>{ev.stopPropagation();deleteTopic(i);});
+      el.appendChild(x);}
+    el.addEventListener("click",()=>switchTopic(i));
+    bar.appendChild(el);});
+  const add=document.createElement("button");
+  add.id="newTab";add.textContent="+ New topic";
+  add.addEventListener("click",newTopic);bar.appendChild(add);
+  document.getElementById("title").textContent=ROOT()?ROOT().n:"CFA Study Tree";}
+
+function switchTopic(i){if(i===LIB.active)return;
+  LIB.active=i;SEL=null;HITS=null;
+  document.getElementById("q").value="";closeSide();
+  persist();drawTabs();draw();fit();}
+async function newTopic(){
+  const name=await ask("Name of the new topic (e.g. \"Asset Allocation\", \"Fixed Income\"):",{input:"New Topic",ok:"Create"});
+  if(name===null)return;snapshot();
+  LIB.topics.push(blankTopic(name.trim()||"New Topic"));
+  LIB.active=LIB.topics.length-1;SEL=null;HITS=null;
+  document.getElementById("q").value="";
+  persist();drawTabs();draw();fit();select(ROOT());
+  toast("Topic created — now add child nodes");}
+async function deleteTopic(i){
+  if(LIB.topics.length<=1)return toast("You need at least one topic");
+  if(!await ask('Delete the whole topic "'+LIB.topics[i].n+'" and all '+countNodes(LIB.topics[i])+' of its nodes?',{ok:"Delete"}))return;
+  snapshot();LIB.topics.splice(i,1);
+  if(LIB.active>=LIB.topics.length)LIB.active=LIB.topics.length-1;
+  else if(LIB.active>i)LIB.active--;
+  SEL=null;closeSide();persist();drawTabs();draw();fit();toast("Topic deleted");}
+async function renameTopic(){const cur=ROOT();if(!cur)return;
+  const name=await ask("Rename this topic:",{input:cur.n,ok:"Rename"});
+  if(name===null||!name.trim())return;
+  snapshot();cur.n=name.trim();persist();drawTabs();draw();}
+function duplicateTopic(){snapshot();
+  const copy=clone(ROOT());copy.n=copy.n+" (copy)";
+  LIB.topics.splice(LIB.active+1,0,copy);LIB.active++;SEL=null;
+  persist();drawTabs();draw();fit();toast("Topic duplicated");}
+
+/* ================= DRAW ================= */
+const svg=document.getElementById("stage"),world=document.getElementById("world"),
+      gL=document.getElementById("links"),gN=document.getElementById("nodes"),
+      side=document.getElementById("side");
+
+function draw(){
+  const root=ROOT();gL.textContent="";gN.textContent="";
+  if(!root){document.getElementById("empty").style.display="flex";return;}
+  prep(root);layout(root);
+  const vis=visibleNodes(root),vset=new Set(vis);
+  if(SEL&&!vset.has(SEL))SEL=null;
+  document.getElementById("empty").style.display=root.c.length?"none":"flex";
+
+  vis.forEach(n=>{if(!n.parent)return;
+    const p=n.parent,y1=p.y+p.h,y2=n.y,my=(y1+y2)/2;
+    const path=document.createElementNS(NS,"path");
+    path.setAttribute("d","M"+p.x+","+y1+" C"+p.x+","+my+" "+n.x+","+my+" "+n.x+","+y2);
+    path.setAttribute("fill","none");
+    path.setAttribute("stroke",STK[Math.min(n.depth,5)]);
+    path.setAttribute("stroke-opacity",".5");path.setAttribute("stroke-width","1.7");
+    if(HITS&&!HITS.has(n.id))path.setAttribute("class","dim");
+    gL.appendChild(path);});
+
+  vis.forEach(n=>{
+    const d=Math.min(n.depth,5);
+    const g=document.createElementNS(NS,"g");
+    let cls="node";if(HITS&&!HITS.has(n.id))cls+=" dim";if(n===SEL)cls+=" sel";
+    g.setAttribute("class",cls);
+    g.setAttribute("transform","translate("+(n.x-n.w/2)+","+n.y+")");
+
+    const r=document.createElementNS(NS,"rect");
+    r.setAttribute("width",n.w);r.setAttribute("height",n.h);r.setAttribute("rx",10);
+    r.setAttribute("fill",FILL[d]);r.setAttribute("stroke",STK[d]);
+    r.setAttribute("stroke-width",n===SEL?2.6:(n.depth===0?2:1.3));
+    g.appendChild(r);
+
+    const t=document.createElementNS(NS,"text");
+    t.setAttribute("text-anchor","middle");t.setAttribute("fill",TXC[d]);
+    t.setAttribute("font-size",n.fs);
+    t.setAttribute("font-family","Segoe UI, Arial, sans-serif");
+    t.setAttribute("font-weight",n.depth<=2?"650":"500");
+    const y0=(n.h-n.lines.length*(n.fs+4))/2+n.fs+1;
+    n.lines.forEach((ln,i)=>{const ts=document.createElementNS(NS,"tspan");
+      ts.setAttribute("x",n.w/2);ts.setAttribute("y",y0+i*(n.fs+4));
+      ts.textContent=ln;t.appendChild(ts);});
+    g.appendChild(t);
+
+    if(n.c.length){
+      const cg=document.createElementNS(NS,"g");cg.style.cursor="pointer";
+      /* big invisible tap target for fingers */
+      const pad=document.createElementNS(NS,"circle");
+      pad.setAttribute("cx",n.w/2);pad.setAttribute("cy",n.h);pad.setAttribute("r",22);
+      pad.setAttribute("class","hitpad");cg.appendChild(pad);
+      const ci=document.createElementNS(NS,"circle");
+      ci.setAttribute("cx",n.w/2);ci.setAttribute("cy",n.h);ci.setAttribute("r",11);
+      ci.setAttribute("fill","#0e1320");ci.setAttribute("stroke",STK[d]);
+      ci.setAttribute("stroke-width","1.6");cg.appendChild(ci);
+      const s=document.createElementNS(NS,"text");
+      s.setAttribute("x",n.w/2);s.setAttribute("y",n.h+5);
+      s.setAttribute("text-anchor","middle");s.setAttribute("font-size","15");
+      s.setAttribute("font-family","Segoe UI, Arial, sans-serif");
+      s.setAttribute("fill",STK[d]);s.textContent=n.open?"−":"+";
+      cg.appendChild(s);
+      g.appendChild(cg);}
+    if(DRAG&&DRAG.active&&isAncestor(DRAG.node,n))g.setAttribute("opacity",".33");
+    if(CLIP===n)r.setAttribute("stroke-dasharray","6 4");
+    gN.appendChild(g);});
+  drawOverlay();
+  updateButtons();}
+
+/* expand/collapse WITHOUT refitting — keeps the user's zoom steady */
+function toggleNode(n){n.open=!n.open;persist();draw();}
+
+/* ================= HIT TESTING (data-driven, works for mouse+touch) ======= */
+function isAncestor(a,b){let p=b;while(p){if(p===a)return true;p=p.parent;}return false;}
+function nodeAt(wx,wy){const vis=visibleNodes(ROOT());
+  for(let i=vis.length-1;i>=0;i--){const n=vis[i];
+    if(wx>=n.x-n.w/2&&wx<=n.x+n.w/2&&wy>=n.y&&wy<=n.y+n.h)return n;}
+  return null;}
+/* The +/- circle sits on the bottom edge. Its tap zone must stay BELOW the
+   box, otherwise tapping the middle of a short node would toggle it instead
+   of selecting it. */
+function toggleAt(wx,wy){const vis=visibleNodes(ROOT());
+  for(const n of vis){if(!n.c.length)continue;
+    if(wy<n.y+n.h-7)continue;
+    if(Math.hypot(wx-n.x,wy-(n.y+n.h))<=21)return n;}
+  return null;}
+
+/* ================= MOVE / REPARENT ================= */
+let DRAG=null, DROP=null, CLIP=null;
+
+/* where would a drop land? "into" = becomes a child; before/after = reorder */
+function dropTargetAt(wx,wy,drag){
+  const over=nodeAt(wx,wy);
+  if(over&&!isAncestor(drag,over)){
+    const edge=30;
+    if(over.parent){
+      if(wx<over.x-over.w/2+edge)return{type:"before",ref:over};
+      if(wx>over.x+over.w/2-edge)return{type:"after",ref:over};}
+    return{type:"into",node:over};}
+  let best=null,bd=Infinity;
+  visibleNodes(ROOT()).forEach(n=>{
+    if(!n.parent||isAncestor(drag,n))return;
+    if(wy>=n.y-34&&wy<=n.y+n.h+34){
+      const d=Math.abs(wx-n.x);if(d<bd){bd=d;best=n;}}});
+  if(best&&bd<best.w*1.7)
+    return wx<best.x?{type:"before",ref:best}:{type:"after",ref:best};
+  return null;}
+
+function canDrop(drag,drop){
+  if(!drag||!drop||!drag.parent)return false;
+  if(drop.type==="into")return !isAncestor(drag,drop.node);
+  return !!drop.ref.parent&&!isAncestor(drag,drop.ref);}
+
+function detach(n){const a=n.parent.c;a.splice(a.indexOf(n),1);}
+
+function performDrop(drag,drop){
+  if(!canDrop(drag,drop))return false;
+  if(drop.type!=="into"&&drop.ref===drag)return false;
+  snapshot();
+  detach(drag);
+  if(drop.type==="into"){drop.node.c.push(drag);drop.node.open=true;}
+  else{const arr=drop.ref.parent.c;let i=arr.indexOf(drop.ref);
+    if(drop.type==="after")i++;arr.splice(i,0,drag);}
+  persist();prep(ROOT());drawTabs();
+  return true;}
+
+/* keyboard/button equivalents — far easier than dragging on a tablet */
+function indent(){
+  if(!SEL||!SEL.parent)return toast("Select a node first");
+  const arr=SEL.parent.c,i=arr.indexOf(SEL);
+  if(i===0)return toast("Nothing above it to nest under");
+  const prev=arr[i-1];
+  snapshot();detach(SEL);prev.c.push(SEL);prev.open=true;
+  persist();prep(ROOT());drawTabs();draw();toast("Nested under \u201c"+shortName(prev.n)+"\u201d");}
+
+function outdent(){
+  if(!SEL||!SEL.parent||!SEL.parent.parent)return toast("Already at the top level");
+  const p=SEL.parent,gp=p.parent;
+  snapshot();detach(SEL);
+  const arr=gp.c;arr.splice(arr.indexOf(p)+1,0,SEL);
+  persist();prep(ROOT());drawTabs();draw();toast("Moved up a level");}
+
+function markMove(){
+  if(!SEL||!SEL.parent)return toast("Select a node to move");
+  CLIP=SEL;draw();
+  toast("\u201c"+shortName(CLIP.n)+"\u201d picked up — now tap the destination and press Drop into");}
+
+function dropInto(){
+  if(!CLIP)return toast("Press Pick up on a node first");
+  if(!SEL)return toast("Tap the destination node");
+  if(isAncestor(CLIP,SEL))return toast("Cannot move a node inside itself");
+  if(performDrop(CLIP,{type:"into",node:SEL})){
+    const name=shortName(CLIP.n);CLIP=null;draw();toast("Moved \u201c"+name+"\u201d");}}
+
+function cancelMove(){if(CLIP){CLIP=null;draw();toast("Move cancelled");}}
+
+/* ================= DRAG OVERLAY ================= */
+function drawOverlay(){
+  const gO=document.getElementById("overlay");if(!gO)return;
+  gO.textContent="";
+  if(!DRAG||!DRAG.active)return;
+  if(DROP&&canDrop(DRAG.node,DROP)){
+    if(DROP.type==="into"){
+      const t=DROP.node,r=document.createElementNS(NS,"rect");
+      r.setAttribute("x",t.x-t.w/2-5);r.setAttribute("y",t.y-5);
+      r.setAttribute("width",t.w+10);r.setAttribute("height",t.h+10);
+      r.setAttribute("rx",13);r.setAttribute("fill","none");
+      r.setAttribute("stroke","#7ee787");r.setAttribute("stroke-width","3.5");
+      gO.appendChild(r);
+      const lab=document.createElementNS(NS,"text");
+      lab.setAttribute("x",t.x);lab.setAttribute("y",t.y-13);
+      lab.setAttribute("text-anchor","middle");lab.setAttribute("font-size","13");
+      lab.setAttribute("font-family","Segoe UI, Arial, sans-serif");
+      lab.setAttribute("fill","#7ee787");lab.textContent="drop inside";
+      gO.appendChild(lab);
+    }else{
+      const t=DROP.ref;
+      const x=DROP.type==="before"?t.x-t.w/2-12:t.x+t.w/2+12;
+      const ln=document.createElementNS(NS,"rect");
+      ln.setAttribute("x",x-3);ln.setAttribute("y",t.y-8);
+      ln.setAttribute("width",6);ln.setAttribute("height",t.h+16);
+      ln.setAttribute("rx",3);ln.setAttribute("fill","#7ee787");
+      gO.appendChild(ln);}
+  }
+  /* ghost following the finger */
+  const n=DRAG.node,gw=Math.min(n.w,200);
+  const gg=document.createElementNS(NS,"g");
+  gg.setAttribute("transform","translate("+(DRAG.wx-gw/2)+","+(DRAG.wy-18)+")");
+  gg.setAttribute("opacity",".9");
+  const r2=document.createElementNS(NS,"rect");
+  r2.setAttribute("width",gw);r2.setAttribute("height",36);r2.setAttribute("rx",9);
+  r2.setAttribute("fill","#1d2740");r2.setAttribute("stroke","#7ee787");
+  r2.setAttribute("stroke-width","2");gg.appendChild(r2);
+  const t2=document.createElementNS(NS,"text");
+  t2.setAttribute("x",gw/2);t2.setAttribute("y",23);
+  t2.setAttribute("text-anchor","middle");t2.setAttribute("font-size","12.5");
+  t2.setAttribute("font-family","Segoe UI, Arial, sans-serif");
+  t2.setAttribute("fill","#e8edf7");
+  t2.textContent=wrapText(n.n,gw-18,12.5)[0]+(n.c.length?"  (+"+n.c.length+")":"");
+  gg.appendChild(t2);gO.appendChild(gg);}
+
+function select(n){SEL=n;side.classList.remove("hide");
+  const chain=[];let p=n.parent;while(p){chain.unshift(p.n);p=p.parent;}
+  document.getElementById("sPath").textContent=chain.length?chain.join("  ›  "):"— root of this topic —";
+  document.getElementById("tName").value=n.n;
+  document.getElementById("tNote").value=n.d||"";
+  draw();}
+function closeSide(){side.classList.add("hide");}
+function onEdit(){if(!SEL)return;
+  SEL.n=document.getElementById("tName").value;
+  SEL.d=document.getElementById("tNote").value;
+  persist();drawTabs();draw();}
+function updateButtons(){const h=!!SEL;
+  const g=id=>document.getElementById(id);
+  if(g("bOut"))g("bOut").disabled=!h||!SEL.parent||!SEL.parent.parent;
+  if(g("bIn"))g("bIn").disabled=!h||!SEL.parent||SEL.parent.c.indexOf(SEL)===0;
+  if(g("bPick"))g("bPick").disabled=!h||!SEL.parent;
+  if(g("bDrop"))g("bDrop").disabled=!CLIP||!h||isAncestor(CLIP,SEL);
+  const cb=g("clipbar");
+  if(cb){cb.style.display=CLIP?"block":"none";
+    if(CLIP)g("clipTxt").textContent="Holding \u201c"+shortName(CLIP.n)+"\u201d. Tap the destination node, then press \u2935 Drop into.";}
+  document.getElementById("bChild").disabled=!h;
+  document.getElementById("bSib").disabled=!h||!SEL.parent;
+  document.getElementById("bDel").disabled=!h||!SEL.parent;
+  document.getElementById("bL").disabled=!h||!SEL.parent;
+  document.getElementById("bR").disabled=!h||!SEL.parent;
+  document.getElementById("bU").disabled=!HIST.length;}
+
+/* ================= NODE EDITS ================= */
+function addNode(kind){
+  if(!SEL)return toast("Tap a node first");
+  snapshot();
+  const fresh={n:"New node",d:"",open:true,c:[]};
+  if(kind==="child"||!SEL.parent){SEL.open=true;SEL.c.push(fresh);}
+  else{const s=SEL.parent.c;s.splice(s.indexOf(SEL)+1,0,fresh);}
+  persist();prep(ROOT());drawTabs();draw();select(fresh);
+  const f=document.getElementById("tName");f.focus();f.select();}
+async function delNode(){if(!SEL||!SEL.parent)return;
+  if(SEL.c.length&&!await ask('Delete "'+SEL.n+'" and its '+SEL.c.length+' child branch(es)?',{ok:"Delete"}))return;
+  snapshot();const a=SEL.parent.c;a.splice(a.indexOf(SEL),1);
+  SEL=null;closeSide();persist();drawTabs();draw();toast("Deleted");}
+function move(dir){if(!SEL||!SEL.parent)return;
+  const a=SEL.parent.c,i=a.indexOf(SEL),j=i+dir;
+  if(j<0||j>=a.length)return;
+  snapshot();a[i]=a[j];a[j]=SEL;persist();draw();}
+function undo(){if(!HIST.length)return;
+  const s=JSON.parse(HIST.pop());
+  LIB.topics=s.topics;LIB.active=Math.min(s.active,s.topics.length-1);
+  SEL=null;closeSide();persist();drawTabs();draw();toast("Undone");}
+
+/* ================= VIEWPORT: pan / pinch / zoom ================= */
+let vx=0,vy=0,vs=1;
+function clampZ(z){return Math.min(MAXZ,Math.max(MINZ,z));}
+function apply(){world.setAttribute("transform","translate("+vx+","+vy+") scale("+vs+")");
+  const p=document.getElementById("zPct");if(p)p.textContent=Math.round(vs*100)+"%";}
+
+function viewArea(){
+  const topH=parseFloat(getComputedStyle(document.documentElement)
+              .getPropertyValue("--topH"))||118;
+  const narrow=innerWidth<=1100;
+  const panelOpen=!side.classList.contains("hide");
+  const left=8;
+  const right=(panelOpen&&!narrow)?360:70;           /* leave room for zoom dock */
+  const top=topH+10;
+  const bottom=(panelOpen&&narrow)?innerHeight*0.56:20;
+  return{x:left,y:top,w:Math.max(160,innerWidth-left-right),
+         h:Math.max(160,innerHeight-top-bottom)};}
+
+/* Below this the text is unreadable, so we stop shrinking and park at the
+   top of the tree instead — you then pan across. Far more usable on a tablet
+   than a 6% view of 113 boxes. */
+const READABLE=0.3;
+
+function fit(){
+  const root=ROOT();if(!root)return;
+  const vis=visibleNodes(root);if(!vis.length)return;
+  const b=bbox(vis),a=viewArea();
+  const ideal=Math.min(a.w/(b.w+60),a.h/(b.h+60),1);   /* never blow past 100% */
+  if(ideal>=READABLE){
+    vs=clampZ(ideal);
+    vx=a.x+(a.w-b.w*vs)/2-b.x0*vs;
+    vy=a.y+(a.h-b.h*vs)/2-b.y0*vs;
+  }else{
+    /* too big to show at a readable size: centre on the root, top-aligned */
+    vs=clampZ(READABLE);
+    vx=a.x+a.w/2-root.x*vs;
+    vy=a.y+20-b.y0*vs;
+  }
+  apply();}
+
+function zoomAt(cx,cy,f){
+  const nz=clampZ(vs*f);f=nz/vs;if(f===1)return;
+  vx=cx-(cx-vx)*f;vy=cy-(cy-vy)*f;vs=nz;apply();}
+function zoomBy(f){const a=viewArea();zoomAt(a.x+a.w/2,a.y+a.h/2,f);}
+
+/* ================= POINTER: pan / pinch / tap / node-drag =================
+   Touch rules:  one finger anywhere = pan.  Long-press a node = pick it up.
+   Mouse rules:  drag background = pan.  drag a node = move it.
+   So you can never move a node by accident while panning on a tablet.      */
+const PTS=new Map();
+let panning=false,px=0,py=0,moved=false;
+let pinch0=0,pinchS=1,pinchCx=0,pinchCy=0,pinching=false;
+let downNode=null,downTog=null,downX=0,downY=0,holdT=null,armed=false;
+const HOLD_MS=380, MOVE_TOL=10;
+
+function ptsArr(){return Array.from(PTS.values());}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function toWorld(sx,sy){return{x:(sx-vx)/vs,y:(sy-vy)/vs};}
+
+function beginDrag(){
+  if(!downNode||!downNode.parent)return;
+  armed=true;panning=false;
+  const w=toWorld(downX,downY);
+  DRAG={node:downNode,active:true,wx:w.x,wy:w.y};
+  DROP=null;CLIP=null;
+  draw();
+  toast("Moving \u201c"+shortName(downNode.n)+"\u201d \u2014 release over a target");}
+
+function endDrag(commit){
+  if(!DRAG){return;}
+  const d=DRAG,t=DROP;DRAG=null;DROP=null;armed=false;
+  if(commit&&t&&canDrop(d.node,t)){
+    if(performDrop(d.node,t)){
+      SEL=d.node;draw();
+      toast(t.type==="into"?"Moved inside \u201c"+shortName(t.node.n)+"\u201d":"Reordered");
+      return;}}
+  draw();}
+
+svg.addEventListener("pointerdown",e=>{
+  PTS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  try{svg.setPointerCapture(e.pointerId);}catch(err){}
+
+  if(PTS.size===1){
+    moved=false;armed=false;downX=e.clientX;downY=e.clientY;
+    const w=toWorld(e.clientX,e.clientY);
+    downTog=toggleAt(w.x,w.y);
+    downNode=downTog?null:nodeAt(w.x,w.y);
+    panning=true;px=e.clientX-vx;py=e.clientY-vy;
+    svg.classList.add("drag");
+    clearTimeout(holdT);
+    if(downNode&&downNode.parent){
+      if(e.pointerType==="mouse")armed=false;        /* mouse arms on movement */
+      else holdT=setTimeout(()=>{if(!moved)beginDrag();},HOLD_MS);
+    }
+  }else if(PTS.size===2){
+    clearTimeout(holdT);
+    if(DRAG)endDrag(false);
+    panning=false;pinching=true;
+    const[a,b]=ptsArr();pinch0=dist(a,b)||1;pinchS=vs;
+    pinchCx=(a.x+b.x)/2;pinchCy=(a.y+b.y)/2;}
+});
+
+svg.addEventListener("pointermove",e=>{
+  if(!PTS.has(e.pointerId))return;
+  PTS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+  if(pinching&&PTS.size>=2){
+    const[a,b]=ptsArr();const d=dist(a,b)||1;
+    const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+    const nz=clampZ(pinchS*(d/pinch0));
+    const wx=(pinchCx-vx)/vs, wy=(pinchCy-vy)/vs;
+    vs=nz; vx=cx-wx*vs; vy=cy-wy*vs;
+    pinchCx=cx;pinchCy=cy;moved=true;apply();return;}
+
+  const far=Math.hypot(e.clientX-downX,e.clientY-downY)>MOVE_TOL;
+  if(far){moved=true;clearTimeout(holdT);}
+
+  /* mouse: dragging off a node starts a move */
+  if(!DRAG&&far&&downNode&&downNode.parent&&e.pointerType==="mouse"){beginDrag();}
+
+  if(DRAG){
+    const w=toWorld(e.clientX,e.clientY);
+    DRAG.wx=w.x;DRAG.wy=w.y;
+    DROP=dropTargetAt(w.x,w.y,DRAG.node);
+    drawOverlay();return;}
+
+  if(panning){
+    const nx=e.clientX-px, ny=e.clientY-py;
+    vx=nx;vy=ny;apply();}
+});
+
+function endPointer(e){
+  const wasOne=PTS.size===1;
+  PTS.delete(e.pointerId);
+  try{svg.releasePointerCapture(e.pointerId);}catch(err){}
+  clearTimeout(holdT);
+
+  if(DRAG&&wasOne){endDrag(true);
+    PTS.clear();panning=false;pinching=false;svg.classList.remove("drag");
+    downNode=null;downTog=null;return;}
+
+  if(PTS.size<2)pinching=false;
+  if(PTS.size===0){
+    panning=false;svg.classList.remove("drag");
+    if(!moved&&!armed){
+      if(downTog)toggleNode(downTog);
+      else if(downNode)select(downNode);
+      else{
+        const now=Date.now();
+        if(now-lastTap<330){fit();lastTap=0;}
+        else{lastTap=now;SEL=null;closeSide();draw();}}}
+    downNode=null;downTog=null;
+  }else if(PTS.size===1){const[a]=ptsArr();panning=true;px=a.x-vx;py=a.y-vy;}
+}
+svg.addEventListener("pointerup",endPointer);
+svg.addEventListener("pointercancel",e=>{if(DRAG)endDrag(false);endPointer(e);});
+svg.addEventListener("pointerleave",e=>{if(e.pointerType==="mouse"&&PTS.has(e.pointerId))endPointer(e);});
+
+svg.addEventListener("wheel",e=>{e.preventDefault();
+  zoomAt(e.clientX,e.clientY,e.deltaY<0?1.12:1/1.12);},{passive:false});
+
+let lastTap=0;
+
+function setLevel(k){const r=ROOT();if(!r)return;
+  (function s(n){n.open=n.depth<k;n.c.forEach(s);})(r);
+  HITS=null;document.getElementById("q").value="";
+  persist();draw();fit();}
+
+function doSearch(q){const term=q.trim().toLowerCase(),r=ROOT();if(!r)return;
+  if(!term){HITS=null;draw();return;}
+  const hits=new Set();
+  (function s(n){const t=(n.n+" "+(n.d||"")).toLowerCase();
+    if(t.includes(term)){hits.add(n.id);let p=n.parent;while(p){hits.add(p.id);p.open=true;p=p.parent;}}
+    n.c.forEach(s);})(r);
+  HITS=hits;draw();fit();}
+
+/* ================= IMPORT / EXPORT ================= */
+async function download(name,text,mime){
+  const bl=new Blob([text],{type:mime}),u=URL.createObjectURL(bl),a=document.createElement("a");
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(u);},1500);return true;}
+function slug(s){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_")
+  .replace(/^_|_$/g,"").slice(0,40)||"topic";}
+async function exportTopic(){if(await download(slug(ROOT().n)+".json",
+  JSON.stringify(clone(ROOT()),null,2),"application/json"))toast("Topic exported");}
+async function exportAll(){if(await download("cfa_study_trees.json",
+  JSON.stringify({v:2,topics:LIB.topics.map(clone)},null,2),"application/json"))
+  toast("All topics exported");}
+
+function importJSON(ev){const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{let o;try{o=JSON.parse(r.result);}catch(e){return info("That file is not valid JSON.");}
+    if(o&&Array.isArray(o.topics)&&o.topics.length){
+      const rep=await ask("This file holds "+o.topics.length+" topic(s). Replace everything you have now, or add them alongside your topics?",{ok:"Replace",cancel:"Add alongside"});
+      snapshot();
+      if(rep){LIB.topics=o.topics;LIB.active=0;}
+      else{LIB.topics=LIB.topics.concat(o.topics);LIB.active=LIB.topics.length-o.topics.length;}
+    } else if(o&&typeof o.n==="string"){snapshot();LIB.topics.push(o);LIB.active=LIB.topics.length-1;}
+    else return info("That file is not a valid tree or topic library.");
+    SEL=null;HITS=null;closeSide();persist();drawTabs();draw();fit();toast("Imported");};
+  r.readAsText(f);ev.target.value="";}
+
+function saveSVG(){const root=ROOT(),vis=visibleNodes(root),b=bbox(vis),pad=40;
+  const c=svg.cloneNode(true);c.setAttribute("xmlns",NS);
+  c.setAttribute("width",b.w+pad*2);c.setAttribute("height",b.h+pad*2);
+  c.setAttribute("viewBox",(b.x0-pad)+" "+(b.y0-pad)+" "+(b.w+pad*2)+" "+(b.h+pad*2));
+  c.querySelector("#world").setAttribute("transform","");
+  const bg=document.createElementNS(NS,"rect");
+  bg.setAttribute("x",b.x0-pad);bg.setAttribute("y",b.y0-pad);
+  bg.setAttribute("width",b.w+pad*2);bg.setAttribute("height",b.h+pad*2);
+  bg.setAttribute("fill","#0e1320");c.insertBefore(bg,c.firstChild);
+  download(slug(root.n)+".svg",new XMLSerializer().serializeToString(c),"image/svg+xml")
+  .then(ok=>ok&&toast("SVG exported"));}
+
+async function resetAll(){if(!await ask("Discard every topic and start over with one empty topic?\n\nIf you're signed in, this also replaces the synced copy on your other devices.",{ok:"Reset"}))return;
+  snapshot();LIB={topics:[JSON.parse(JSON.stringify(DEFAULT))],active:0};
+  SEL=null;HITS=null;closeSide();persist();drawTabs();draw();fit();toast("Reset");}
+
+/* ================= KEYBOARD ================= */
+document.addEventListener("keydown",e=>{
+  const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if(typing){if(e.key==="Escape")document.activeElement.blur();return;}
+  if(e.key==="Tab"&&SEL){e.preventDefault();addNode("child");}
+  else if(e.key==="Enter"&&SEL&&SEL.parent){e.preventDefault();addNode("sibling");}
+  else if(e.key==="Delete"&&SEL)delNode();
+  else if(e.key==="Escape"){
+    if(DRAG){endDrag(false);return;}
+    if(CLIP){cancelMove();return;}
+    SEL=null;closeSide();draw();}
+  else if(e.key==="ArrowRight"&&e.shiftKey&&SEL){e.preventDefault();indent();}
+  else if(e.key==="ArrowLeft"&&e.shiftKey&&SEL){e.preventDefault();outdent();}
+  else if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();undo();}
+  else if(e.key==="+"||e.key==="=")zoomBy(1.25);
+  else if(e.key==="-")zoomBy(0.8);
+  else if(e.key==="0")fit();
+  else if(e.ctrlKey&&e.key==="ArrowRight")switchTopic((LIB.active+1)%LIB.topics.length);
+  else if(e.ctrlKey&&e.key==="ArrowLeft")switchTopic((LIB.active-1+LIB.topics.length)%LIB.topics.length);});
+
+/* ================= BOOT ================= */
+LIB=load();drawTabs();draw();fit();
+Sync.start();
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(fit,150);});
+window.addEventListener("orientationchange",()=>setTimeout(fit,320));
+
+</script>
+
+
+
+<script type="module">
+/* =====================================================================
+   PASTE YOUR FIREBASE CONFIG HERE
+   Replace  null  with the { apiKey: ..., authDomain: ..., ... } object
+   from Firebase → Project settings → Your apps. Keep the semicolon.
+   ===================================================================== */
+const FIREBASE_CONFIG = null;
+
+function ready(api){window.FB_API=api;window.dispatchEvent(new CustomEvent("fb-ready",{detail:api}));}
+if(!FIREBASE_CONFIG){ready(null);}
+else{
+  try{
+    const V="10.12.2",B="https://www.gstatic.com/firebasejs/"+V+"/";
+    const [{initializeApp},A,F]=await Promise.all([
+      import(B+"firebase-app.js"),import(B+"firebase-auth.js"),import(B+"firebase-firestore.js")]);
+    const app=initializeApp(FIREBASE_CONFIG);
+    const auth=A.getAuth(app);
+    await A.setPersistence(auth,A.browserLocalPersistence);
+    const db=F.getFirestore(app);
+    const ref=uid=>F.doc(db,"trees",uid);
+    const provider=new A.GoogleAuthProvider();provider.setCustomParameters({prompt:"select_account"});
+    ready({
+      onAuth:cb=>A.onAuthStateChanged(auth,cb),
+      signIn:async()=>{try{await A.signInWithPopup(auth,provider);}
+        catch(e){if(e&&(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment"))
+          return A.signInWithRedirect(auth,provider);throw e;}},
+      signOut:()=>A.signOut(auth),
+      load:async uid=>{const s=await F.getDoc(ref(uid));return s.exists()?s.data():null;},
+      save:(uid,data)=>F.setDoc(ref(uid),data),
+      watch:(uid,cb,err)=>F.onSnapshot(ref(uid),s=>{if(!s.metadata.hasPendingWrites)cb(s.exists()?s.data():null);},err)
+    });
+  }catch(e){console.error("Firebase failed to load",e);ready(null);}
+}
+</script>
+</body></html>
