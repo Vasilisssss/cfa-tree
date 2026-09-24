@@ -977,7 +977,14 @@ window.addEventListener("orientationchange",()=>setTimeout(fit,320));
    Replace  null  with the { apiKey: ..., authDomain: ..., ... } object
    from Firebase → Project settings → Your apps. Keep the semicolon.
    ===================================================================== */
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBIbrCyHPr0udV2t37uYoxln3gzNvdMi4U",
+  authDomain: "cfa-tree.firebaseapp.com",
+  projectId: "cfa-tree",
+  storageBucket: "cfa-tree.firebasestorage.app",
+  messagingSenderId: "685047588681",
+  appId: "1:685047588681:web:87d19ed3664efbbf7d9c98"
+};
 
 function ready(api){window.FB_API=api;window.dispatchEvent(new CustomEvent("fb-ready",{detail:api}));}
 if(!FIREBASE_CONFIG){ready(null);}
