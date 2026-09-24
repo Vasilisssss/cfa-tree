@@ -1,6 +1,6 @@
 {
-  "name": "CFA Study Tree",
-  "short_name": "CFA",
+  "name": "CFA Study Notes",
+  "short_name": "CFA Notes",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
