@@ -1299,21 +1299,29 @@ document.addEventListener("keydown",e=>{
 /* ================= BOLD / ITALIC / UNDERLINE / COLOUR ================= */
 (function(){
   const ed=document.getElementById("tNote"),bar=document.getElementById("noteBar");
-  const COLS=["#e8edf7","#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1","#ff5c5c"];
+  const COLS=["#e8edf7","#4cc9f0","#ff5c5c","#f5b301"];   /* white (normal), blue, red, yellow */
   let range=null;
   /* show which colour the text at the cursor has */
   const rgb=v=>(String(v).match(/\d+/g)||[]).slice(0,3).join(",");
   const hexRgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)).join(",");
   function markColour(){let v="";try{v=document.queryCommandValue("foreColor");}catch(e){}
     const cur=rgb(v);
-    document.querySelectorAll("#swatches button").forEach(b=>b.classList.toggle("on",!!cur&&hexRgb(b.dataset.c)===cur));}
+    document.querySelectorAll("#swatches button").forEach(b=>b.classList.toggle("on",!!cur&&hexRgb(b.dataset.c)===cur));
+    /* light up B / I / U when that style is on at the cursor */
+    [["fB","bold"],["fI","italic"],["fU","underline"]].forEach(([id,cmd])=>{let on=false;
+      try{on=document.queryCommandState(cmd);}catch(e){}
+      document.getElementById(id).classList.toggle("on",on);});}
   document.addEventListener("selectionchange",()=>{const s=getSelection();
     if(s.rangeCount&&ed.contains(s.anchorNode)){range=s.getRangeAt(0).cloneRange();markColour();}});
   /* tapping a button must not take the cursor/selection out of the note */
   bar.addEventListener("pointerdown",e=>{if(e.target.closest("button"))e.preventDefault();});
   bar.addEventListener("mousedown",e=>{if(e.target.closest("button"))e.preventDefault();});
-  function run(cmd,val){ed.focus({preventScroll:true});
-    if(range){const s=getSelection();s.removeAllRanges();s.addRange(range);}
+  function run(cmd,val){
+    /* only put the cursor back if it left the note; resetting it would cancel
+       a bold/italic/underline you switched on or off just before typing */
+    const s=getSelection(),inside=s.rangeCount&&ed.contains(s.anchorNode);
+    ed.focus({preventScroll:true});
+    if(!inside&&range){s.removeAllRanges();s.addRange(range);}
     try{document.execCommand("styleWithCSS",false,false);}catch(e){}
     document.execCommand(cmd,false,val);onEdit();markColour();}
   document.getElementById("fB").addEventListener("click",()=>run("bold"));
