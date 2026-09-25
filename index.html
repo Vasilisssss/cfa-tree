@@ -55,8 +55,6 @@ button:disabled{opacity:.33}
 button.go{border-color:var(--c2);color:var(--c2)}
 input[type=search]{background:var(--panel);color:var(--txt);border:1px solid var(--edge);
   padding:6px 10px;border-radius:7px;font-size:12px;min-width:150px;font-family:inherit;min-height:32px}
-.legend{margin-left:auto;font-size:10px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
 
 /* ---------- canvas ---------- */
 #stage{position:absolute;inset:0;width:100%;height:100%;background:var(--bg);
@@ -123,7 +121,6 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     color:var(--txt);border-radius:7px;padding:6px 11px;font-size:12px}
   .bar{display:none;max-height:none}
   .bar.open{display:flex}
-  .legend{display:none}
   #side{left:13px;width:auto;top:auto;height:52vh;bottom:13px;border-radius:14px}
   #zoom{bottom:calc(16px + env(safe-area-inset-bottom))}
   #side:not(.hide) ~ #zoom{bottom:calc(54vh + 16px)}
@@ -244,13 +241,6 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <button id="signOut" style="display:none" onclick="Sync.signOut()">Sign out</button>
     <input type="file" id="fIn" accept=".json" style="display:none" onchange="importJSON(event)">
     <input type="search" id="q" placeholder="Search this topic…" oninput="doSearch(this.value)">
-    <div class="legend">
-      <span><i class="dot" style="background:var(--c0)"></i>Topic</span>
-      <span><i class="dot" style="background:var(--c1)"></i>Reading</span>
-      <span><i class="dot" style="background:var(--c2)"></i>Section</span>
-      <span><i class="dot" style="background:var(--c3)"></i>Concept</span>
-      <span><i class="dot" style="background:var(--c4)"></i>Detail</span>
-    </div>
   </div>
 </div>
 
@@ -319,9 +309,9 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
 <script>
 /* ================= LAYOUT CORE ================= */
 const NW=[250,215,190,178,170,165], GAPX=24, VGAP=[90,80,72,66,62,60];
-const FILL=["#3a2d05","#0e2f3d","#12321c","#3a2313","#2b1f42","#3a1526"];
-const STK =["#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1"];
-const TXC =["#ffd980","#a9e6fb","#b9f0c2","#ffcaab","#ddc9ff","#ffc2d4"];
+const FILL=["#3a2d05","#0e2f3d","#12321c","#3a2313","#2b1f42","#3a1526","#0f3a35","#33380f","#1a2650","#3a2e1c"];
+const STK =["#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1","#5eead4","#d4e157","#7aa2ff","#e0b98a"];
+const TXC =["#ffd980","#a9e6fb","#b9f0c2","#ffcaab","#ddc9ff","#ffc2d4","#b4f5ea","#eef3b0","#c7d6ff","#f3dcc0"];
 const MINZ=0.06, MAXZ=4;
 
 function rid(){return Math.random().toString(36).slice(2,10);}
@@ -366,7 +356,12 @@ function layout(root){
     const mh=Math.max(...rows[d].map(n=>n.h));
     rows[d].forEach(n=>n.y=y);
     y+=mh+VGAP[Math.min(d,VGAP.length-1)];});
-  placeShared(root,vis,floats,treeKids);}
+  placeShared(root,vis,floats,treeKids);
+  /* layer number = how far down it is shown: one below its lowest parent.
+     Every node in the same layer gets the same colour. */
+  const lv=n=>{if(n.lv!==undefined)return n.lv;n.lv=n.depth;
+    if(n.dp&&n.dp.length)n.lv=Math.max(...n.dp.map(lv))+1;return n.lv;};
+  vis.forEach(n=>{n.lv=undefined;});root.lv=0;vis.forEach(lv);}
 
 /* A node with several parents sits centred between all of them, below the
    lowest one. If that spot is taken it slides down until it's clear.
@@ -619,14 +614,14 @@ function draw(){
     const path=document.createElementNS(NS,"path");
     path.setAttribute("d","M"+p.x+","+y1+" C"+p.x+","+my+" "+n.x+","+my+" "+n.x+","+y2);
     path.setAttribute("fill","none");
-    path.setAttribute("stroke",STK[Math.min(n.depth,5)]);
+    path.setAttribute("stroke",STK[Math.min(n.lv,STK.length-1)]);
     path.setAttribute("stroke-opacity",".5");path.setAttribute("stroke-width","1.7");
     if(HITS&&!(HITS.has(n.id)&&HITS.has(p.id)))path.setAttribute("class","dim");
     gL.appendChild(path);});});
 
   const linkedTo=LINKING?new Set(LINKING.P||[]):null;
   vis.forEach(n=>{
-    const d=Math.min(n.depth,5);
+    const d=Math.min(n.lv,STK.length-1);
     const g=document.createElementNS(NS,"g");
     let cls="node";if(HITS&&!HITS.has(n.id))cls+=" dim";if(n===SEL)cls+=" sel";
     g.setAttribute("class",cls);
