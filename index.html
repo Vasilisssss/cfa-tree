@@ -951,6 +951,7 @@ function select(n){SEL=n;side.classList.remove("hide");
   document.getElementById("sPath").textContent=txt;
   document.getElementById("tName").value=n.n;
   document.getElementById("tNote").innerHTML=noteHTML(n);
+  NoteSize.load(n);
   drawLinkList(n);
   draw();}
 function closeSide(){side.classList.add("hide");}
@@ -1296,6 +1297,23 @@ document.addEventListener("keydown",e=>{
   else if(e.ctrlKey&&e.key==="ArrowRight")switchTopic((LIB.active+1)%LIB.topics.length);
   else if(e.ctrlKey&&e.key==="ArrowLeft")switchTopic((LIB.active-1+LIB.topics.length)%LIB.topics.length);});
 
+
+/* ================= NOTE BOX SIZE, PER NODE =================
+   When you drag the note box bigger or smaller, that size is remembered for
+   that node (on this device, also after a reload). Nodes you never resized
+   use the normal size.                                                      */
+const NoteSize=(function(){
+  const ed=document.getElementById("tNote"),KEY="cfa_note_sizes";
+  let map={},cur=null,setH=0;
+  try{map=JSON.parse(localStorage.getItem(KEY)||"{}")||{};}catch(e){}
+  function load(n){cur=n.u;const h=map[n.u];
+    if(h)ed.style.height=h+"px";else ed.style.removeProperty("height");
+    setH=ed.offsetHeight;}
+  if(window.ResizeObserver)new ResizeObserver(()=>{
+    const h=ed.offsetHeight;if(!cur||!h||Math.abs(h-setH)<2)return;
+    setH=h;map[cur]=Math.round(h);
+    try{localStorage.setItem(KEY,JSON.stringify(map));}catch(e){}}).observe(ed);
+  return{load};})();
 
 /* ================= BOLD / ITALIC / UNDERLINE / COLOUR ================= */
 (function(){
