@@ -169,6 +169,11 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   #side{height:var(--sideH,58vh)}
   #sideGrip{bottom:calc(13px + var(--sideH,58vh) - 8px)}
 }
+/* ---------- extra parent links ---------- */
+#linkList{display:flex;flex-direction:column;gap:5px;margin:4px 0 6px}
+.lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;
+  border:1px solid var(--edge);border-radius:8px;padding:5px 8px}
+.lrow button{min-height:28px;padding:3px 8px;font-size:11px}
 </style>
 </head>
 <body>
@@ -199,6 +204,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <button onclick="indent()" id="bIn" title="Nest under the node above it" disabled="">Indent ⇥</button>
     <button onclick="markMove()" id="bPick" title="Pick this node up">✋ Pick up</button>
     <button onclick="dropInto()" id="bDrop" class="go" title="Drop the picked node inside the selected one" disabled="">⤵ Drop into</button>
+    <button onclick="startLink()" id="bLink" title="Hang this node under a second parent too">🔗 Link</button>
     <span class="sep"></span>
     <button onclick="undo()" id="bU">Undo</button>
     <span class="sep"></span>
@@ -250,6 +256,11 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <button onclick="markMove()">✋ Pick up</button>
     <button class="go" onclick="dropInto()">⤵ Drop into</button>
   </div>
+  <div id="linkBox">
+    <label>Also linked under</label>
+    <div id="linkList"></div>
+    <button style="width:100%" onclick="startLink()">🔗 Link to another parent</button>
+  </div>
   <div id="clipbar" style="display: none; font-size: 11px; color: rgb(126, 231, 135); border: 1px solid rgb(44, 56, 82); border-radius: 8px; padding: 7px 9px; line-height: 1.45;">
     <span id="clipTxt"></span>
     <button style="margin-top:6px;width:100%" onclick="cancelMove()">Cancel move</button>
@@ -258,6 +269,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>On a tablet:</b> drag with one finger to pan, pinch with two to zoom. Double-tap the background to fit everything.<br><br>
     <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
     For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
+    <b>Two parents:</b> tap the lower node, press <b>🔗 Link</b>, then tap the second node it belongs under. A dashed line connects them. Remove it with <b>× Unlink</b> in this panel.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -277,7 +289,8 @@ const STK =["#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1"];
 const TXC =["#ffd980","#a9e6fb","#b9f0c2","#ffcaab","#ddc9ff","#ffc2d4"];
 const MINZ=0.06, MAXZ=4;
 
-function prep(root){let id=0;(function w(n,d,p){n.id=id++;n.depth=d;n.parent=p;
+function rid(){return Math.random().toString(36).slice(2,10);}
+function prep(root){let id=0;(function w(n,d,p){n.id=id++;n.depth=d;n.parent=p;if(!n.u)n.u=rid();
   if(n.open===undefined)n.open=d<2;if(!Array.isArray(n.c))n.c=[];
   n.c.forEach(k=>w(k,d+1,n));})(root,0,null);return id;}
 
@@ -321,7 +334,8 @@ function readSeed(){try{const o=JSON.parse(document.getElementById("seed").textC
 const SEED=readSeed();
 const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
-function clone(n){return{n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};}
+function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};
+  if(n.L&&n.L.length)o.L=n.L.slice();return o;}
 function ROOT(){return LIB.topics[LIB.active];}
 function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
 function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
@@ -373,7 +387,7 @@ const Sync=(function(){
     let topics;try{topics=JSON.parse(d.topics);}catch(e){return;}
     if(!Array.isArray(topics)||!topics.length)return;
     lastJSON=d.topics;meta.base=d.updatedAt||0;meta.dirty=false;saveMeta();
-    const selPath=SEL?pathOf(SEL):null;
+    const selPath=SEL?pathOf(SEL):null;LINKING=null;
     LIB.topics=topics;LIB.active=Math.min(LIB.active,topics.length-1);
     try{localStorage.setItem(KEY,JSON.stringify({v:2,active:LIB.active,topics:LIB.topics.map(clone)}));}catch(e){}
     HITS=null;prep(ROOT());drawTabs();draw();
@@ -474,7 +488,7 @@ function drawTabs(){
   document.getElementById("title").textContent=ROOT()?ROOT().n:"CFA Study Notes";}
 
 function switchTopic(i){if(i===LIB.active)return;
-  LIB.active=i;SEL=null;HITS=null;
+  LIB.active=i;SEL=null;HITS=null;LINKING=null;
   document.getElementById("q").value="";closeSide();
   persist();drawTabs();draw();fit();}
 async function newTopic(){
@@ -524,6 +538,19 @@ function draw(){
     if(HITS&&!HITS.has(n.id))path.setAttribute("class","dim");
     gL.appendChild(path);});
 
+  /* extra (second-parent) links, drawn dashed */
+  const byU=new Map();vis.forEach(n=>byU.set(n.u,n));
+  vis.forEach(n=>{(n.L||[]).forEach(u=>{const p=byU.get(u);if(!p||p===n)return;
+    const y1=p.y+p.h,y2=n.y,my=(y1+y2)/2;
+    const path=document.createElementNS(NS,"path");
+    path.setAttribute("d","M"+p.x+","+y1+" C"+p.x+","+my+" "+n.x+","+my+" "+n.x+","+y2);
+    path.setAttribute("fill","none");
+    path.setAttribute("stroke",STK[Math.min(n.depth,5)]);
+    path.setAttribute("stroke-opacity",".8");path.setAttribute("stroke-width","1.9");
+    path.setAttribute("stroke-dasharray","7 5");
+    if(HITS&&!(HITS.has(n.id)&&HITS.has(p.id)))path.setAttribute("class","dim");
+    gL.appendChild(path);});});
+
   vis.forEach(n=>{
     const d=Math.min(n.depth,5);
     const g=document.createElementNS(NS,"g");
@@ -567,6 +594,7 @@ function draw(){
       g.appendChild(cg);}
     if(DRAG&&DRAG.active&&isAncestor(DRAG.node,n))g.setAttribute("opacity",".33");
     if(CLIP===n)r.setAttribute("stroke-dasharray","6 4");
+    if(LINKING===n)r.setAttribute("stroke-dasharray","3 3");
     gN.appendChild(g);});
   drawOverlay();
   updateButtons();}
@@ -590,7 +618,7 @@ function toggleAt(wx,wy){const vis=visibleNodes(ROOT());
   return null;}
 
 /* ================= MOVE / REPARENT ================= */
-let DRAG=null, DROP=null, CLIP=null;
+let DRAG=null, DROP=null, CLIP=null, LINKING=null;
 
 /* where would a drop land? "into" = becomes a child; before/after = reorder */
 function dropTargetAt(wx,wy,drag){
@@ -658,6 +686,38 @@ function dropInto(){
 
 function cancelMove(){if(CLIP){CLIP=null;draw();toast("Move cancelled");}}
 
+/* ================= SECOND-PARENT LINKS ================= */
+function findByU(u){let f=null;(function w(n){if(f)return;if(n.u===u){f=n;return;}n.c.forEach(w);})(ROOT());return f;}
+function startLink(){
+  if(!SEL||!SEL.parent)return toast("Tap the lower node first");
+  CLIP=null;LINKING=SEL;draw();
+  toast("Now tap the other node it should also hang under");}
+function cancelLink(){if(LINKING){LINKING=null;draw();toast("Link cancelled");}}
+function finishLink(p){
+  const ch=LINKING;LINKING=null;
+  if(p===ch){draw();return toast("Link cancelled");}
+  select(ch);
+  if(p===ch.parent)return toast("That is already its parent");
+  if(isAncestor(ch,p))return toast("Can't link it under its own branch");
+  if((ch.L||[]).includes(p.u))return toast("Already linked");
+  snapshot();ch.L=(ch.L||[]).concat(p.u);
+  persist();select(ch);toast("Also linked under \u201c"+shortName(p.n)+"\u201d");}
+function unlink(u){if(!SEL||!SEL.L)return;
+  snapshot();SEL.L=SEL.L.filter(x=>x!==u);if(!SEL.L.length)delete SEL.L;
+  persist();select(SEL);toast("Link removed");}
+function pruneLinks(){const all=new Set();(function w(n){all.add(n.u);n.c.forEach(w);})(ROOT());
+  (function w(n){if(n.L){n.L=n.L.filter(u=>all.has(u));if(!n.L.length)delete n.L;}n.c.forEach(w);})(ROOT());}
+function drawLinkList(n){
+  const box=document.getElementById("linkBox"),list=document.getElementById("linkList");
+  box.style.display=n.parent?"":"none";list.textContent="";
+  (n.L||[]).forEach(u=>{const p=findByU(u);if(!p)return;
+    const row=document.createElement("div");row.className="lrow";
+    const t=document.createElement("span");t.textContent=shortName(p.n);
+    const b=document.createElement("button");b.textContent="× Unlink";b.onclick=()=>unlink(u);
+    row.appendChild(t);row.appendChild(b);list.appendChild(row);});
+  if(!list.childNodes.length){const e=document.createElement("span");e.className="hint";
+    e.textContent="None";list.appendChild(e);}}
+
 /* ================= DRAG OVERLAY ================= */
 function drawOverlay(){
   const gO=document.getElementById("overlay");if(!gO)return;
@@ -708,6 +768,7 @@ function select(n){SEL=n;side.classList.remove("hide");
   document.getElementById("sPath").textContent=chain.length?chain.join("  ›  "):"— root of this topic —";
   document.getElementById("tName").value=n.n;
   document.getElementById("tNote").value=n.d||"";
+  drawLinkList(n);
   draw();}
 function closeSide(){side.classList.add("hide");}
 function onEdit(){if(!SEL)return;
@@ -719,6 +780,7 @@ function updateButtons(){const h=!!SEL;
   if(g("bOut"))g("bOut").disabled=!h||!SEL.parent||!SEL.parent.parent;
   if(g("bIn"))g("bIn").disabled=!h||!SEL.parent||SEL.parent.c.indexOf(SEL)===0;
   if(g("bPick"))g("bPick").disabled=!h||!SEL.parent;
+  if(g("bLink"))g("bLink").disabled=!h||!SEL.parent;
   if(g("bDrop"))g("bDrop").disabled=!CLIP||!h||isAncestor(CLIP,SEL);
   const cb=g("clipbar");
   if(cb){cb.style.display=CLIP?"block":"none";
@@ -741,8 +803,8 @@ function addNode(kind){
   const f=document.getElementById("tName");f.focus();f.select();}
 async function delNode(){if(!SEL||!SEL.parent)return;
   if(SEL.c.length&&!await ask('Delete "'+SEL.n+'" and its '+SEL.c.length+' child branch(es)?',{ok:"Delete"}))return;
-  snapshot();const a=SEL.parent.c;a.splice(a.indexOf(SEL),1);
-  SEL=null;closeSide();persist();drawTabs();draw();toast("Deleted");}
+  snapshot();const a=SEL.parent.c;a.splice(a.indexOf(SEL),1);pruneLinks();
+  SEL=null;LINKING=null;closeSide();persist();drawTabs();draw();toast("Deleted");}
 function move(dir){if(!SEL||!SEL.parent)return;
   const a=SEL.parent.c,i=a.indexOf(SEL),j=i+dir;
   if(j<0||j>=a.length)return;
@@ -750,7 +812,7 @@ function move(dir){if(!SEL||!SEL.parent)return;
 function undo(){if(!HIST.length)return;
   const s=JSON.parse(HIST.pop());
   LIB.topics=s.topics;LIB.active=Math.min(s.active,s.topics.length-1);
-  SEL=null;closeSide();persist();drawTabs();draw();toast("Undone");}
+  SEL=null;LINKING=null;closeSide();persist();drawTabs();draw();toast("Undone");}
 
 /* ================= VIEWPORT: pan / pinch / zoom ================= */
 let vx=0,vy=0,vs=1;
@@ -899,7 +961,8 @@ function endPointer(e){
     panning=false;svg.classList.remove("drag");
     if(!moved&&!armed){
       if(downTog)toggleNode(downTog);
-      else if(downNode)select(downNode);
+      else if(downNode){if(LINKING)finishLink(downNode);else select(downNode);}
+      else if(LINKING)cancelLink();
       else{
         const now=Date.now();
         if(now-lastTap<330){fit();lastTap=0;}
@@ -981,6 +1044,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="Escape"){
     if(DRAG){endDrag(false);return;}
     if(CLIP){cancelMove();return;}
+    if(LINKING){cancelLink();return;}
     SEL=null;closeSide();draw();}
   else if(e.key==="ArrowRight"&&e.shiftKey&&SEL){e.preventDefault();indent();}
   else if(e.key==="ArrowLeft"&&e.shiftKey&&SEL){e.preventDefault();outdent();}
