@@ -78,6 +78,15 @@ text{pointer-events:none;user-select:none}
 #zPct{text-align:center;font-size:10.5px;color:var(--muted);background:#1a2338cc;
   border:1px solid var(--edge);border-radius:9px;padding:3px 0}
 
+/* ---------- linking mode banner ---------- */
+#modeBar{position:absolute;left:50%;transform:translateX(-50%);
+  top:calc(var(--topH) + env(safe-area-inset-top) + 10px);z-index:7;display:none;
+  align-items:center;gap:10px;background:#12321cf2;border:1px solid var(--c2);color:#b9f0c2;
+  padding:5px 6px 5px 14px;border-radius:22px;font-size:12.5px;max-width:calc(100% - 26px)}
+#modeBar.show{display:flex}
+#modeBar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modeBar button{border-radius:18px;min-height:32px;flex:none}
+
 /* ---------- edit panel ---------- */
 #side{position:absolute;top:calc(var(--topH) + 8px);right:13px;bottom:13px;width:330px;z-index:8;
   background:#131b2bf7;border:1px solid var(--edge);border-radius:12px;padding:13px;
@@ -204,14 +213,15 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <button onclick="indent()" id="bIn" title="Nest under the node above it" disabled="">Indent ⇥</button>
     <button onclick="markMove()" id="bPick" title="Pick this node up">✋ Pick up</button>
     <button onclick="dropInto()" id="bDrop" class="go" title="Drop the picked node inside the selected one" disabled="">⤵ Drop into</button>
-    <button onclick="startLink()" id="bLink" title="Hang this node under a second parent too">🔗 Link</button>
+    <button onclick="startLink()" id="bLink" title="Hang this node under more parents">🔗 Link</button>
+    <button onclick="unlinkAll()" id="bUnlink" title="Remove all extra parents from this node">✂ Unlink</button>
     <span class="sep"></span>
     <button onclick="undo()" id="bU">Undo</button>
     <span class="sep"></span>
     <button onclick="renameTopic()">Rename</button>
     <button onclick="duplicateTopic()">Duplicate</button>
     <span class="sep"></span>
-        <button onclick="exportAll()">Export all</button>
+    <button onclick="exportAll()">Export all</button>
     <button onclick="document.getElementById('fIn').click()">Import</button>
     <button onclick="saveSVG()">SVG</button>
     <button onclick="resetAll()">Reset</button>
@@ -232,6 +242,8 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <g id="world"><g id="links"></g><g id="nodes"></g><g id="overlay"></g></g>
 </svg>
 
+<div id="modeBar"><span id="modeTxt"></span><button class="go" onclick="endLink()">✓ Done</button></div>
+
 <div id="empty" style="display: none;"><div>This topic is empty.</div><div style="font-size:12px">Tap the root node, then <b>+ Child</b>, to start building.</div></div>
 
 <div id="zoom">
@@ -245,7 +257,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <h3>Edit node <button id="closeSide" onclick="closeSide()">×</button></h3>
   <div class="path" id="sPath"></div>
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
-  <div><label>Note / explanation</label><textarea id="tNote" oninput="onEdit()" style="height: 469px;"></textarea></div>
+  <div><label>Note / explanation</label><textarea id="tNote" oninput="onEdit()"></textarea></div>
   <div class="grid">
     <button onclick="addNode('child')">+ Child</button>
     <button onclick="addNode('sibling')">+ Sibling</button>
@@ -259,7 +271,8 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <div id="linkBox">
     <label>Also linked under</label>
     <div id="linkList"></div>
-    <button style="width:100%" onclick="startLink()">🔗 Link to another parent</button>
+    <button id="pLink" style="width:100%" onclick="startLink()">🔗 Link to other parents</button>
+    <button id="pUnlink" style="width:100%;margin-top:6px" onclick="unlinkAll()">✂ Unlink from all extra parents</button>
   </div>
   <div id="clipbar" style="display: none; font-size: 11px; color: rgb(126, 231, 135); border: 1px solid rgb(44, 56, 82); border-radius: 8px; padding: 7px 9px; line-height: 1.45;">
     <span id="clipTxt"></span>
@@ -269,7 +282,8 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>On a tablet:</b> drag with one finger to pan, pinch with two to zoom. Double-tap the background to fit everything.<br><br>
     <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
     For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
-    <b>Two parents:</b> tap the lower node, press <b>🔗 Link</b>, then tap the second node it belongs under. A line connects them. Remove it with <b>× Unlink</b> in this panel.<br><br>
+    <b>Extra parents:</b> tap the lower node and press <b>🔗 Link</b>. Then tap every node it should also hang under — as many as you like. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) when you're finished. The node moves to sit centred underneath all its parents.<br>
+    To undo links: <b>× Unlink</b> next to a parent in this panel removes just that one; <b>✂ Unlink</b> removes them all.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -301,20 +315,50 @@ function wrapText(t,wpx,fs){const max=Math.max(6,Math.floor(wpx/(fs*0.55)));
   if(cur)lines.push(cur);return lines.length?lines:[""];}
 
 function layout(root){const rows={};let cursor=0;
+  /* a node "floats" if it has an extra parent that is currently visible */
+  const visU=new Set(visibleNodes(root).map(n=>n.u));
+  const floats=n=>!!n.parent&&(n.L||[]).some(u=>u!==n.u&&visU.has(u));
   (function m(n){const d=Math.min(n.depth,NW.length-1);
     const fs=n.depth===0?15:n.depth===1?13.5:12.5;
     n.w=NW[d];n.fs=fs;n.lines=wrapText(n.n,n.w-24,fs);
     n.h=Math.max(40,n.lines.length*(fs+4)+20);
     const kids=(n.open&&n.c.length)?n.c:[];
-    if(!kids.length){n.x=cursor+n.w/2;cursor+=n.w+GAPX;}
-    else{kids.forEach(m);n.x=(kids[0].x+kids[kids.length-1].x)/2;
+    const fixed=kids.filter(k=>!floats(k));
+    /* floating kids are laid out but don't take up room in the row —
+       placeLinked() moves them to their shared spot afterwards */
+    kids.forEach(k=>{if(floats(k)){const c0=cursor;m(k);cursor=c0;}else m(k);});
+    if(!fixed.length){n.x=cursor+n.w/2;cursor+=n.w+GAPX;}
+    else{n.x=(fixed[0].x+fixed[fixed.length-1].x)/2;
       const need=n.x+n.w/2+GAPX;if(need>cursor)cursor=need;}
     (rows[n.depth]=rows[n.depth]||[]).push(n);})(root);
   let y=30;
   Object.keys(rows).map(Number).sort((a,b)=>a-b).forEach(d=>{
     const mh=Math.max(...rows[d].map(n=>n.h));
     rows[d].forEach(n=>n.y=y);
-    y+=mh+VGAP[Math.min(d,VGAP.length-1)];});}
+    y+=mh+VGAP[Math.min(d,VGAP.length-1)];});
+  placeLinked(root);}
+
+/* Put every linked node centred between all its parents, below the lowest
+   one. If it would bump into another box, slide it (and its branch) down
+   until it's clear. Nothing else on the map moves. */
+function placeLinked(root){
+  const vis=visibleNodes(root),byU=new Map();vis.forEach(n=>byU.set(n.u,n));
+  const branch=n=>{const o=[];(function w(k){o.push(k);if(k.open)k.c.forEach(w);})(n);return o;};
+  vis.filter(n=>n.parent&&n.L&&n.L.length).sort((a,b)=>a.depth-b.depth).forEach(n=>{
+    const ps=[n.parent].concat(n.L.map(u=>byU.get(u)).filter(p=>p&&p!==n&&!isAncestor(n,p)));
+    if(ps.length<2)return;
+    const low=ps.reduce((a,p)=>(p.y+p.h>a.y+a.h?p:a));
+    const tx=ps.reduce((s,p)=>s+p.x,0)/ps.length;
+    const ty=Math.max(n.y,low.y+low.h+VGAP[Math.min(low.depth,VGAP.length-1)]);
+    const S=branch(n),inS=new Set(S),others=vis.filter(k=>!inS.has(k));
+    const dx=tx-n.x,dy0=ty-n.y;S.forEach(k=>{k.x+=dx;k.y+=dy0;});
+    for(let i=0;i<80;i++){let push=0;
+      for(const a of S){for(const b of others){
+        if(Math.abs(a.x-b.x)<(a.w+b.w)/2+GAPX/2&&a.y<b.y+b.h+24&&b.y<a.y+a.h+24){
+          push=b.y+b.h+30-a.y;break;}}
+        if(push)break;}
+      if(!push)break;
+      S.forEach(k=>k.y+=push);}});}
 
 function visibleNodes(root){const o=[];(function w(n){o.push(n);if(n.open)n.c.forEach(w);})(root);return o;}
 function bbox(ns){let a=Infinity,b=-Infinity,c=Infinity,e=-Infinity;
@@ -391,7 +435,7 @@ const Sync=(function(){
     LIB.topics=topics;LIB.active=Math.min(LIB.active,topics.length-1);
     try{localStorage.setItem(KEY,JSON.stringify({v:2,active:LIB.active,topics:LIB.topics.map(clone)}));}catch(e){}
     HITS=null;prep(ROOT());drawTabs();draw();
-    const back=selPath?nodeAt(selPath):null;
+    const back=selPath?nodeAtPath(selPath):null;
     if(back){SEL=back;select(back);}else{SEL=null;closeSide();draw();}
     pill("ok","Synced");}
 
@@ -445,7 +489,7 @@ const Sync=(function(){
   return{changed,start,signIn,signOut};})();
 
 function pathOf(n){const p=[];let c=n;while(c.parent){p.unshift(c.parent.c.indexOf(c));c=c.parent;}return p;}
-function nodeAt(p){let n=ROOT();for(const i of p){if(!n||!n.c[i])return null;n=n.c[i];}return n;}
+function nodeAtPath(p){let n=ROOT();for(const i of p){if(!n||!n.c[i])return null;n=n.c[i];}return n;}
 
 /* ================= DIALOG ================= */
 function ask(msg,o){o=o||{};return new Promise(res=>{
@@ -495,7 +539,7 @@ async function newTopic(){
   const name=await ask("Name of the new topic (e.g. \"Asset Allocation\", \"Fixed Income\"):",{input:"New Topic",ok:"Create"});
   if(name===null)return;snapshot();
   LIB.topics.push(blankTopic(name.trim()||"New Topic"));
-  LIB.active=LIB.topics.length-1;SEL=null;HITS=null;
+  LIB.active=LIB.topics.length-1;SEL=null;HITS=null;LINKING=null;
   document.getElementById("q").value="";
   persist();drawTabs();draw();fit();select(ROOT());
   toast("Topic created — now add child nodes");}
@@ -505,14 +549,14 @@ async function deleteTopic(i){
   snapshot();LIB.topics.splice(i,1);
   if(LIB.active>=LIB.topics.length)LIB.active=LIB.topics.length-1;
   else if(LIB.active>i)LIB.active--;
-  SEL=null;closeSide();persist();drawTabs();draw();fit();toast("Topic deleted");}
+  SEL=null;LINKING=null;closeSide();persist();drawTabs();draw();fit();toast("Topic deleted");}
 async function renameTopic(){const cur=ROOT();if(!cur)return;
   const name=await ask("Rename this topic:",{input:cur.n,ok:"Rename"});
   if(name===null||!name.trim())return;
   snapshot();cur.n=name.trim();persist();drawTabs();draw();}
 function duplicateTopic(){snapshot();
   const copy=clone(ROOT());copy.n=copy.n+" (copy)";
-  LIB.topics.splice(LIB.active+1,0,copy);LIB.active++;SEL=null;
+  LIB.topics.splice(LIB.active+1,0,copy);LIB.active++;SEL=null;LINKING=null;
   persist();drawTabs();draw();fit();toast("Topic duplicated");}
 
 /* ================= DRAW ================= */
@@ -538,7 +582,7 @@ function draw(){
     if(HITS&&!HITS.has(n.id))path.setAttribute("class","dim");
     gL.appendChild(path);});
 
-  /* extra (second-parent) links, drawn like normal links */
+  /* extra-parent links, drawn like normal links */
   const byU=new Map();vis.forEach(n=>byU.set(n.u,n));
   vis.forEach(n=>{(n.L||[]).forEach(u=>{const p=byU.get(u);if(!p||p===n)return;
     const y1=p.y+p.h,y2=n.y,my=(y1+y2)/2;
@@ -550,6 +594,7 @@ function draw(){
     if(HITS&&!(HITS.has(n.id)&&HITS.has(p.id)))path.setAttribute("class","dim");
     gL.appendChild(path);});});
 
+  const linkedTo=LINKING?new Set(LINKING.L||[]):null;
   vis.forEach(n=>{
     const d=Math.min(n.depth,5);
     const g=document.createElementNS(NS,"g");
@@ -594,9 +639,14 @@ function draw(){
     if(DRAG&&DRAG.active&&isAncestor(DRAG.node,n))g.setAttribute("opacity",".33");
     if(CLIP===n)r.setAttribute("stroke-dasharray","6 4");
     if(LINKING===n)r.setAttribute("stroke-dasharray","3 3");
+    /* while linking, show which nodes are already chosen as extra parents */
+    if(linkedTo&&linkedTo.has(n.u)){
+      r.setAttribute("stroke","#7ee787");r.setAttribute("stroke-width","3");
+      r.setAttribute("stroke-dasharray","7 3");}
     gN.appendChild(g);});
   drawOverlay();
-  updateButtons();}
+  updateButtons();
+  updateModeBar();}
 
 /* expand/collapse WITHOUT refitting — keeps the user's zoom steady */
 function toggleNode(n){n.open=!n.open;persist();draw();}
@@ -673,7 +723,7 @@ function outdent(){
 
 function markMove(){
   if(!SEL||!SEL.parent)return toast("Select a node to move");
-  CLIP=SEL;draw();
+  LINKING=null;CLIP=SEL;draw();
   toast("\u201c"+shortName(CLIP.n)+"\u201d picked up — now tap the destination and press Drop into");}
 
 function dropInto(){
@@ -685,25 +735,46 @@ function dropInto(){
 
 function cancelMove(){if(CLIP){CLIP=null;draw();toast("Move cancelled");}}
 
-/* ================= SECOND-PARENT LINKS ================= */
+/* ================= EXTRA-PARENT LINKS (multi) =================
+   Press Link once, then tap as many parents as you like.
+   Tapping a parent that's already linked removes it.
+   Done / empty space / Escape finishes.                        */
 function findByU(u){let f=null;(function w(n){if(f)return;if(n.u===u){f=n;return;}n.c.forEach(w);})(ROOT());return f;}
 function startLink(){
+  if(LINKING)return endLink();
   if(!SEL||!SEL.parent)return toast("Tap the lower node first");
-  CLIP=null;LINKING=SEL;draw();
-  toast("Now tap the other node it should also hang under");}
-function cancelLink(){if(LINKING){LINKING=null;draw();toast("Link cancelled");}}
-function finishLink(p){
-  const ch=LINKING;LINKING=null;
-  if(p===ch){draw();return toast("Link cancelled");}
+  CLIP=null;LINKING=SEL;select(SEL);
+  toast("Tap every node it should also hang under — then press Done");}
+function endLink(){
+  if(!LINKING)return;
+  const ch=LINKING,k=(ch.L||[]).length;LINKING=null;
   select(ch);
-  if(p===ch.parent)return toast("That is already its parent");
+  toast(k?"Now under "+(k+1)+" parents":"No extra parents");}
+function toggleLinkTarget(p){
+  const ch=LINKING;
+  if(p===ch)return endLink();
+  if(p===ch.parent)return toast("That is already its main parent");
   if(isAncestor(ch,p))return toast("Can't link it under its own branch");
-  if((ch.L||[]).includes(p.u))return toast("Already linked");
-  snapshot();ch.L=(ch.L||[]).concat(p.u);
-  persist();select(ch);toast("Also linked under \u201c"+shortName(p.n)+"\u201d");}
+  snapshot();
+  const L=ch.L||[];
+  if(L.includes(p.u)){
+    ch.L=L.filter(u=>u!==p.u);if(!ch.L.length)delete ch.L;
+    toast("Removed \u201c"+shortName(p.n)+"\u201d");}
+  else{
+    ch.L=L.concat(p.u);
+    toast("Added \u201c"+shortName(p.n)+"\u201d");}
+  persist();drawLinkList(ch);draw();}
 function unlink(u){if(!SEL||!SEL.L)return;
   snapshot();SEL.L=SEL.L.filter(x=>x!==u);if(!SEL.L.length)delete SEL.L;
   persist();select(SEL);toast("Link removed");}
+/* remove every extra parent at once — the node goes back under its main parent */
+async function unlinkAll(){
+  const n=SEL;
+  if(!n||!n.L||!n.L.length)return toast("This node has no extra parents");
+  const k=n.L.length;
+  if(k>1&&!await ask('Remove all '+k+' extra parents from "'+shortName(n.n)+'"?\n\nIt stays under its main parent.',{ok:"Unlink all"}))return;
+  snapshot();LINKING=null;delete n.L;
+  persist();select(n);toast("Unlinked \u2014 back under its main parent only");}
 function pruneLinks(){const all=new Set();(function w(n){all.add(n.u);n.c.forEach(w);})(ROOT());
   (function w(n){if(n.L){n.L=n.L.filter(u=>all.has(u));if(!n.L.length)delete n.L;}n.c.forEach(w);})(ROOT());}
 function drawLinkList(n){
@@ -716,6 +787,13 @@ function drawLinkList(n){
     row.appendChild(t);row.appendChild(b);list.appendChild(row);});
   if(!list.childNodes.length){const e=document.createElement("span");e.className="hint";
     e.textContent="None";list.appendChild(e);}}
+function updateModeBar(){
+  const m=document.getElementById("modeBar");if(!m)return;
+  if(!LINKING){m.classList.remove("show");return;}
+  const k=(LINKING.L||[]).length;
+  document.getElementById("modeTxt").textContent="Linking \u201c"+shortName(LINKING.n)+"\u201d \u2014 "+
+    k+" extra parent"+(k===1?"":"s")+". Tap nodes to add or remove.";
+  m.classList.add("show");}
 
 /* ================= DRAG OVERLAY ================= */
 function drawOverlay(){
@@ -779,7 +857,14 @@ function updateButtons(){const h=!!SEL;
   if(g("bOut"))g("bOut").disabled=!h||!SEL.parent||!SEL.parent.parent;
   if(g("bIn"))g("bIn").disabled=!h||!SEL.parent||SEL.parent.c.indexOf(SEL)===0;
   if(g("bPick"))g("bPick").disabled=!h||!SEL.parent;
-  if(g("bLink"))g("bLink").disabled=!h||!SEL.parent;
+  if(g("bLink")){g("bLink").disabled=!LINKING&&(!h||!SEL.parent);
+    g("bLink").textContent=LINKING?"\u2713 Done linking":"\uD83D\uDD17 Link";
+    g("bLink").classList.toggle("go",!!LINKING);}
+  if(g("pLink")){g("pLink").textContent=LINKING?"\u2713 Done linking":"\uD83D\uDD17 Link to other parents";
+    g("pLink").classList.toggle("go",!!LINKING);}
+  const hasL=h&&!!(SEL.L&&SEL.L.length);
+  if(g("bUnlink"))g("bUnlink").disabled=!hasL||!!LINKING;
+  if(g("pUnlink"))g("pUnlink").style.display=hasL&&!LINKING?"":"none";
   if(g("bDrop"))g("bDrop").disabled=!CLIP||!h||isAncestor(CLIP,SEL);
   const cb=g("clipbar");
   if(cb){cb.style.display=CLIP?"block":"none";
@@ -794,7 +879,7 @@ function updateButtons(){const h=!!SEL;
 /* ================= NODE EDITS ================= */
 function addNode(kind){
   if(!SEL)return toast("Tap a node first");
-  snapshot();
+  snapshot();LINKING=null;
   const fresh={n:"New node",d:"",open:true,c:[]};
   if(kind==="child"||!SEL.parent){SEL.open=true;SEL.c.push(fresh);}
   else{const s=SEL.parent.c;s.splice(s.indexOf(SEL)+1,0,fresh);}
@@ -833,8 +918,7 @@ function viewArea(){
          h:Math.max(160,innerHeight-top-bottom)};}
 
 /* Below this the text is unreadable, so we stop shrinking and park at the
-   top of the tree instead — you then pan across. Far more usable on a tablet
-   than a 6% view of 113 boxes. */
+   top of the tree instead — you then pan across. */
 const READABLE=0.3;
 
 function fit(){
@@ -862,7 +946,7 @@ function zoomBy(f){const a=viewArea();zoomAt(a.x+a.w/2,a.y+a.h/2,f);}
 /* ================= POINTER: pan / pinch / tap / node-drag =================
    Touch rules:  one finger anywhere = pan.  Long-press a node = pick it up.
    Mouse rules:  drag background = pan.  drag a node = move it.
-   So you can never move a node by accident while panning on a tablet.      */
+   While linking, dragging nodes is switched off so taps are never lost.   */
 const PTS=new Map();
 let panning=false,px=0,py=0,moved=false;
 let pinch0=0,pinchS=1,pinchCx=0,pinchCy=0,pinching=false;
@@ -874,7 +958,7 @@ function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 function toWorld(sx,sy){return{x:(sx-vx)/vs,y:(sy-vy)/vs};}
 
 function beginDrag(){
-  if(!downNode||!downNode.parent)return;
+  if(!downNode||!downNode.parent||LINKING)return;
   armed=true;panning=false;
   const w=toWorld(downX,downY);
   DRAG={node:downNode,active:true,wx:w.x,wy:w.y};
@@ -904,7 +988,7 @@ svg.addEventListener("pointerdown",e=>{
     panning=true;px=e.clientX-vx;py=e.clientY-vy;
     svg.classList.add("drag");
     clearTimeout(holdT);
-    if(downNode&&downNode.parent){
+    if(downNode&&downNode.parent&&!LINKING){
       if(e.pointerType==="mouse")armed=false;        /* mouse arms on movement */
       else holdT=setTimeout(()=>{if(!moved)beginDrag();},HOLD_MS);
     }
@@ -932,7 +1016,7 @@ svg.addEventListener("pointermove",e=>{
   if(far){moved=true;clearTimeout(holdT);}
 
   /* mouse: dragging off a node starts a move */
-  if(!DRAG&&far&&downNode&&downNode.parent&&e.pointerType==="mouse"){beginDrag();}
+  if(!DRAG&&!LINKING&&far&&downNode&&downNode.parent&&e.pointerType==="mouse"){beginDrag();}
 
   if(DRAG){
     const w=toWorld(e.clientX,e.clientY);
@@ -960,8 +1044,8 @@ function endPointer(e){
     panning=false;svg.classList.remove("drag");
     if(!moved&&!armed){
       if(downTog)toggleNode(downTog);
-      else if(downNode){if(LINKING)finishLink(downNode);else select(downNode);}
-      else if(LINKING)cancelLink();
+      else if(downNode){if(LINKING)toggleLinkTarget(downNode);else select(downNode);}
+      else if(LINKING)endLink();
       else{
         const now=Date.now();
         if(now-lastTap<330){fit();lastTap=0;}
@@ -1014,7 +1098,7 @@ function importJSON(ev){const f=ev.target.files[0];if(!f)return;
       else{LIB.topics=LIB.topics.concat(o.topics);LIB.active=LIB.topics.length-o.topics.length;}
     } else if(o&&typeof o.n==="string"){snapshot();LIB.topics.push(o);LIB.active=LIB.topics.length-1;}
     else return info("That file is not a valid tree or topic library.");
-    SEL=null;HITS=null;closeSide();persist();drawTabs();draw();fit();toast("Imported");};
+    SEL=null;HITS=null;LINKING=null;closeSide();persist();drawTabs();draw();fit();toast("Imported");};
   r.readAsText(f);ev.target.value="";}
 
 function saveSVG(){const root=ROOT(),vis=visibleNodes(root),b=bbox(vis),pad=40;
@@ -1031,20 +1115,21 @@ function saveSVG(){const root=ROOT(),vis=visibleNodes(root),b=bbox(vis),pad=40;
 
 async function resetAll(){if(!await ask("Discard every topic and start over with one empty topic?\n\nIf you're signed in, this also replaces the synced copy on your other devices.",{ok:"Reset"}))return;
   snapshot();LIB={topics:[JSON.parse(JSON.stringify(DEFAULT))],active:0};
-  SEL=null;HITS=null;closeSide();persist();drawTabs();draw();fit();toast("Reset");}
+  SEL=null;HITS=null;LINKING=null;closeSide();persist();drawTabs();draw();fit();toast("Reset");}
 
 /* ================= KEYBOARD ================= */
 document.addEventListener("keydown",e=>{
   const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
   if(typing){if(e.key==="Escape")document.activeElement.blur();return;}
+  if(e.key==="Escape"){
+    if(DRAG){endDrag(false);return;}
+    if(LINKING){endLink();return;}
+    if(CLIP){cancelMove();return;}
+    SEL=null;closeSide();draw();return;}
+  if(e.key==="Enter"&&LINKING){e.preventDefault();endLink();return;}
   if(e.key==="Tab"&&SEL){e.preventDefault();addNode("child");}
   else if(e.key==="Enter"&&SEL&&SEL.parent){e.preventDefault();addNode("sibling");}
   else if(e.key==="Delete"&&SEL)delNode();
-  else if(e.key==="Escape"){
-    if(DRAG){endDrag(false);return;}
-    if(CLIP){cancelMove();return;}
-    if(LINKING){cancelLink();return;}
-    SEL=null;closeSide();draw();}
   else if(e.key==="ArrowRight"&&e.shiftKey&&SEL){e.preventDefault();indent();}
   else if(e.key==="ArrowLeft"&&e.shiftKey&&SEL){e.preventDefault();outdent();}
   else if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();undo();}
@@ -1091,9 +1176,7 @@ window.addEventListener("orientationchange",()=>setTimeout(fit,320));
 
 <script type="module">
 /* =====================================================================
-   PASTE YOUR FIREBASE CONFIG HERE
-   Replace  null  with the { apiKey: ..., authDomain: ..., ... } object
-   from Firebase → Project settings → Your apps. Keep the semicolon.
+   FIREBASE CONFIG
    ===================================================================== */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBIbrCyHPr0udV2t37uYoxln3gzNvdMi4U",
