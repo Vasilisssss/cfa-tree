@@ -103,7 +103,8 @@ label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:
   white-space:pre-wrap;overflow-wrap:break-word}
 #tNote:focus{border-color:#44567c}
 #tNote{position:relative}
-#tNote::after{content:"";position:absolute;left:0;top:var(--inkBottom,0px);width:1px;height:1px;pointer-events:none}
+#tNote .inkb{user-select:none;-webkit-user-select:none;margin:0}
+#tNote .inkb canvas{display:block;width:100%}
 #noteBar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0 6px}
 #noteBar .nbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
 #noteBar button{min-height:30px;padding:4px 10px;font-size:12px}
@@ -111,6 +112,7 @@ label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:
 #swatches{display:flex;gap:6px;align-items:center;margin-left:2px}
 #swatches button{width:24px;height:24px;min-height:24px;padding:0;border-radius:50%;
   border:2px solid #0b1020;box-shadow:0 0 0 1px #3a4a68}
+#swatches button.on{box-shadow:0 0 0 2px #ffffff;transform:scale(1.15)}
 #noteWrap{position:relative}
 #ink{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
 .hint{font-size:10.5px;color:var(--muted);line-height:1.55}
@@ -443,7 +445,7 @@ const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
 function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};if(n.rt)o.rt=1;
   if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;
-  if(n.k&&n.k.s&&n.k.s.length)o.k={w:n.k.w,s:n.k.s.map(a=>a.slice())};return o;}
+  if(n.k)o.k=JSON.parse(JSON.stringify(n.k));return o;}
 function ROOT(){return LIB.topics[LIB.active];}
 function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
 function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
@@ -955,7 +957,9 @@ function select(n){SEL=n;side.classList.remove("hide");
   else{const chain=[];let p=n.parent;while(p){chain.unshift(p.n);p=p.parent;}txt=chain.join("  ›  ");}
   document.getElementById("sPath").textContent=txt;
   document.getElementById("tName").value=n.n;
-  document.getElementById("tNote").innerHTML=noteHTML(n);
+  migrateInk(n);
+  const edBox=document.getElementById("tNote");
+  edBox.innerHTML=noteHTML(n);normalizeLines(edBox);
   drawLinkList(n);
   Ink.refresh();
   draw();}
@@ -970,6 +974,13 @@ function cleanHTML(html){const t=document.createElement("template");t.innerHTML=
     if(n.nodeType===3){dst.appendChild(document.createTextNode(n.nodeValue));return;}
     if(n.nodeType!==1)return;const tag=n.tagName;
     if(/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|TEMPLATE|LINK|META)$/.test(tag))return;
+    const okId=v=>/^[a-z0-9]{1,12}$/.test(v||"");
+    if(tag==="DIV"&&okId(n.getAttribute("data-ink"))){           /* drawing space */
+      const d=document.createElement("div");d.setAttribute("data-ink",n.getAttribute("data-ink"));
+      dst.appendChild(d);return;}
+    if(tag==="SPAN"&&okId(n.getAttribute("data-mk"))){            /* pin for a mark on a word */
+      const m=document.createElement("span");m.setAttribute("data-mk",n.getAttribute("data-mk"));
+      dst.appendChild(m);copy(n,dst);return;}
     let el=null;
     if(/^(B|STRONG|I|EM|BR|DIV|P)$/.test(tag))el=document.createElement(tag.toLowerCase());
     else if(tag==="SPAN"||tag==="FONT"){const sp=document.createElement("span");
@@ -979,12 +990,34 @@ function cleanHTML(html){const t=document.createElement("template");t.innerHTML=
       if(sp.getAttribute("style"))el=sp;}
     if(el){dst.appendChild(el);if(tag!=="BR")copy(n,el);}else copy(n,dst);});})(t.content,out);
   return out.innerHTML;}
-function noteHTML(n){return n.rt?cleanHTML(n.d):escHTML(n.d||"").replace(/\n/g,"<br>");}
+function noteHTML(n){return n.rt?cleanHTML(n.d)
+  :(n.d?escHTML(n.d).split("\n").map(l=>"<div>"+(l||"<br>")+"</div>").join(""):"");}
+/* every line of the note becomes its own block, so empty lines can turn into drawing space */
+function normalizeLines(ed){const out=[];let cur=null;
+  [...ed.childNodes].forEach(n=>{
+    if(n.nodeType===1&&/^(DIV|P)$/.test(n.tagName)){cur=null;out.push(n);return;}
+    if(n.nodeType===1&&n.tagName==="BR"){if(cur)cur=null;
+      else{const d=document.createElement("div");d.appendChild(document.createElement("br"));out.push(d);}return;}
+    if(!cur){cur=document.createElement("div");out.push(cur);}cur.appendChild(n);});
+  if(!out.length){const d=document.createElement("div");d.appendChild(document.createElement("br"));out.push(d);}
+  ed.replaceChildren(...out);}
+/* drawings from the earlier version (one layer over the whole box) become a drawing space at the end */
+function migrateInk(n){if(!n.k||!Array.isArray(n.k.s))return;
+  const w=n.k.w||300;let low=0;n.k.s.forEach(p=>{for(let i=1;i<p.length;i+=2)low=Math.max(low,p[i]);});
+  const id=rid(),html=noteHTML(n);
+  n.k={b:{[id]:{r:Math.max(0.15,(low+10)/w),s:n.k.s.map(p=>p.map(v=>Math.round(v/w*10000)/10000))}},m:{}};
+  n.d=html+'<div data-ink="'+id+'"></div>';n.rt=1;}
 function noteText(n){if(!n.rt)return n.d||"";const t=document.createElement("template");t.innerHTML=n.d||"";return t.content.textContent;}
 function onEdit(){if(!SEL)return;
   SEL.n=document.getElementById("tName").value;
   const ed=document.getElementById("tNote");
-  if(ed.textContent.trim()){SEL.d=cleanHTML(ed.innerHTML);SEL.rt=1;}else{SEL.d="";delete SEL.rt;}
+  const hasInk=ed.querySelector("[data-ink],[data-mk]");
+  if(ed.textContent.trim()||hasInk){SEL.d=cleanHTML(ed.innerHTML);SEL.rt=1;}else{SEL.d="";delete SEL.rt;}
+  if(SEL.k){const B=new Set([...ed.querySelectorAll("[data-ink]")].map(x=>x.dataset.ink)),
+      M=new Set([...ed.querySelectorAll("[data-mk]")].map(x=>x.dataset.mk));
+    for(const id in SEL.k.b||{})if(!B.has(id))delete SEL.k.b[id];
+    for(const id in SEL.k.m||{})if(!M.has(id))delete SEL.k.m[id];
+    if(!Object.keys(SEL.k.b||{}).length&&!Object.keys(SEL.k.m||{}).length)delete SEL.k;}
   persist();drawTabs();draw();}
 function updateButtons(){const h=!!SEL;
   const g=id=>document.getElementById(id);
@@ -1299,104 +1332,178 @@ document.addEventListener("keydown",e=>{
   else if(e.ctrlKey&&e.key==="ArrowLeft")switchTopic((LIB.active-1+LIB.topics.length)%LIB.topics.length);});
 
 /* ================= STYLUS INK IN THE NOTE BOX =================
-   Pen touches draw on top of the note text. Finger and keyboard type as usual.
-   The pen's eraser end (or eraser button) rubs out any line it touches.
-   Lines are stored on the node as k = {w: box width when drawn, s: [[x,y,x,y,...], ...]}
-   and scaled to the current box width.                                     */
+   Pen switch: Text (pen behaves normally) / Draw / Erase. Finger + keyboard always type.
+   Drawing on EMPTY lines turns those lines into drawing space that is part of the
+   note, so it always stays between the same sentences and scales with the width.
+   Drawing ON words pins the mark to the nearest word, so it follows that word.
+   Stored on the node: k = { b: {id: {r: height/width, s: strokes (0-1 of width)}},
+                             m: {id: {s: strokes in px from the word pin}} }       */
 const Ink=(function(){
-  const ta=document.getElementById("tNote"),cv=document.getElementById("ink"),cx=cv.getContext("2d");
-  let pen=null,raf=0;
-  const scale=n=>(n&&n.k&&n.k.w)?ta.clientWidth/n.k.w:1;
-  function pt(e,n){const r=ta.getBoundingClientRect(),s=scale(n);
-    return[Math.round((e.clientX-r.left)/s),Math.round((e.clientY-r.top+ta.scrollTop)/s)];}
-  function size(){const w=ta.offsetWidth,h=ta.offsetHeight,d=window.devicePixelRatio||1;
-    cv.style.left=ta.offsetLeft+"px";cv.style.top=ta.offsetTop+"px";
-    cv.style.width=w+"px";cv.style.height=h+"px";
-    const W=Math.round(w*d),H=Math.round(h*d);
+  const ed=document.getElementById("tNote"),ov=document.getElementById("ink"),oc=ov.getContext("2d");
+  let pen=null,raf=0,mode="text";
+  try{document.execCommand("defaultParagraphSeparator",false,"div");}catch(e){}
+  const dpr=()=>window.devicePixelRatio||1;
+  const K=()=>{if(!SEL.k)SEL.k={b:{},m:{}};SEL.k.b=SEL.k.b||{};SEL.k.m=SEL.k.m||{};return SEL.k;};
+  const isInk=el=>el.hasAttribute&&el.hasAttribute("data-ink");
+  const blank=el=>!isInk(el)&&el.textContent===""&&!(el.querySelector&&el.querySelector("[data-mk]"));
+  const blocks=()=>[...ed.querySelectorAll("div[data-ink]")];
+  const lineH=()=>parseFloat(getComputedStyle(ed).lineHeight)||20;
+  function pos(e){const r=ed.getBoundingClientRect();
+    return[e.clientX-r.left-ed.clientLeft,e.clientY-r.top-ed.clientTop+ed.scrollTop];}
+  function style(c){c.lineCap="round";c.lineJoin="round";c.strokeStyle="#e8edf7";c.lineWidth=2.2;}
+  function path(c,p,sc,ox,oy){c.beginPath();c.moveTo(ox+p[0]*sc,oy+p[1]*sc);
+    if(p.length===2)c.lineTo(ox+p[0]*sc+0.1,oy+p[1]*sc);
+    for(let i=2;i<p.length;i+=2)c.lineTo(ox+p[i]*sc,oy+p[i+1]*sc);c.stroke();}
+  function hydrate(){blocks().forEach(b=>{if(b._ok)return;b._ok=1;b.contentEditable="false";
+    b.className="inkb";b.appendChild(document.createElement("canvas"));});}
+  function drawBlock(b){const cv=b.querySelector("canvas");if(!cv)return;
+    const data=SEL&&SEL.k&&SEL.k.b&&SEL.k.b[b.dataset.ink];
+    const w=b.clientWidth,h=Math.max(8,Math.round(w*(data?data.r:0.2))),d=dpr();
+    cv.style.height=h+"px";const W=Math.round(w*d),H=Math.round(h*d);
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
-    fitRoom();draw();}
-  /* when the drawing is scaled up, make sure the box can scroll down to all of it */
-  function fitRoom(){const n=SEL;
-    let low=0;if(n&&n.k)n.k.s.forEach(p=>{for(let i=1;i<p.length;i+=2)if(p[i]>low)low=p[i];});
-    ta.style.setProperty("--inkBottom",Math.ceil(low*scale(n)+12)+"px");}
-  function draw(){raf=0;const d=window.devicePixelRatio||1;
-    cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
-    const n=SEL;if(!n||!n.k||!n.k.s.length)return;const s=scale(n);
-    cx.setTransform(d,0,0,d,0,-ta.scrollTop*d);
-    cx.lineCap="round";cx.lineJoin="round";cx.strokeStyle="#e8edf7";cx.lineWidth=2.2*s;
-    n.k.s.forEach(p=>{cx.beginPath();cx.moveTo(p[0]*s,p[1]*s);
-      if(p.length===2)cx.lineTo(p[0]*s+0.1,p[1]*s);
-      for(let i=2;i<p.length;i+=2)cx.lineTo(p[i]*s,p[i+1]*s);cx.stroke();});}
-  const later=()=>{if(!raf)raf=requestAnimationFrame(draw);};
-  function eraseAt(p){const n=pen.node;if(!n.k)return;const R=10/scale(n);
-    const keep=n.k.s.filter(st=>{for(let i=0;i<st.length;i+=2)
-      if(Math.hypot(st[i]-p[0],st[i+1]-p[1])<R)return false;return true;});
-    if(keep.length!==n.k.s.length){if(!pen.snapped){snapshot();pen.snapped=true;}n.k.s=keep;}}
+    const c=cv.getContext("2d");c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);
+    if(!data)return;c.setTransform(d,0,0,d,0,0);style(c);data.s.forEach(p=>path(c,p,w,0,0));}
+  function pinXY(id){const a=ed.querySelector('span[data-mk="'+id+'"]');if(!a)return null;
+    const r=a.getBoundingClientRect(),er=ed.getBoundingClientRect();
+    return[r.left-er.left-ed.clientLeft,r.top-er.top-ed.clientTop+ed.scrollTop];}
+  function drawOverlay(){const w=ed.offsetWidth,h=ed.offsetHeight,d=dpr();
+    ov.style.left=ed.offsetLeft+"px";ov.style.top=ed.offsetTop+"px";ov.style.width=w+"px";ov.style.height=h+"px";
+    const W=Math.round(w*d),H=Math.round(h*d);if(ov.width!==W||ov.height!==H){ov.width=W;ov.height=H;}
+    oc.setTransform(1,0,0,1,0,0);oc.clearRect(0,0,W,H);
+    oc.setTransform(d,0,0,d,ed.clientLeft*d,(ed.clientTop-ed.scrollTop)*d);style(oc);
+    /* keep marks inside the box */
+    oc.save();oc.beginPath();oc.rect(0,ed.scrollTop,ed.clientWidth,ed.clientHeight);oc.clip();
+    const m=SEL&&SEL.k&&SEL.k.m;
+    if(m)for(const id in m){const xy=pinXY(id);if(xy)m[id].s.forEach(p=>path(oc,p,1,xy[0],xy[1]));}
+    if(pen&&!pen.er&&pen.p)path(oc,pen.p,1,0,0);
+    oc.restore();}
+  function drawAll(){raf=0;blocks().forEach(drawBlock);drawOverlay();}
+  const later=()=>{if(!raf)raf=requestAnimationFrame(drawAll);};
+  function refresh(){hydrate();drawAll();}
 
-  /* pen hovering over the box: stop the browser from scrolling with the pen */
-  let mode="text";
-  function setMode(m){mode=m;ta.style.touchAction="";
+  /* put an invisible pin just before the word nearest to (clientX, clientY) */
+  function pinAt(cx,cy,fallback,id){const sp=document.createElement("span");sp.setAttribute("data-mk",id);
+    let rg=null;
+    try{if(document.caretRangeFromPoint)rg=document.caretRangeFromPoint(cx,cy);
+      else if(document.caretPositionFromPoint){const c=document.caretPositionFromPoint(cx,cy);
+        if(c){rg=document.createRange();rg.setStart(c.offsetNode,c.offset);}}}catch(e){}
+    if(rg&&ed.contains(rg.startContainer)&&!rg.startContainer.closest?.("[data-ink]")){
+      let node=rg.startContainer,off=rg.startOffset;
+      if(node.nodeType===3){const t=node.nodeValue;while(off>0&&!/\s/.test(t[off-1]))off--;}
+      const r2=document.createRange();r2.setStart(node,off);r2.collapse(true);r2.insertNode(sp);}
+    else fallback.insertBefore(sp,fallback.firstChild);}
+
+  function commit(p){
+    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+    for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);y0=Math.min(y0,p[i+1]);y1=Math.max(y1,p[i+1]);}
+    const kids=[...ed.children];
+    const hit=kids.filter(k=>k.offsetTop<y1+1&&k.offsetTop+k.offsetHeight>y0-1);
+    const k=K();
+    if(hit.length&&hit.every(x=>blank(x)||isInk(x))){
+      /* empty lines -> drawing space */
+      let b=hit.find(isInk);
+      if(!b){const id=rid(),top=hit[0].offsetTop,last=hit[hit.length-1];
+        const w=hit[0].clientWidth||ed.clientWidth;
+        k.b[id]={r:(last.offsetTop+last.offsetHeight-top)/w,s:[]};
+        b=document.createElement("div");b.setAttribute("data-ink",id);hit[0].before(b);hydrate();}
+      const data=k.b[b.dataset.ink];
+      hit.forEach(x=>{if(x!==b&&blank(x))x.remove();});
+      const w=b.clientWidth,bx=b.offsetLeft,by=b.offsetTop;
+      data.s.push(p.map((v,i)=>Math.round((i%2?(v-by):(v-bx))/w*10000)/10000));
+      const need=(y1-by+6)/w;if(need>data.r)data.r=need;
+    }else{
+      /* on words -> mark pinned to the nearest word */
+      const target=hit.find(x=>!blank(x)&&!isInk(x))||kids.find(x=>!isInk(x))||ed;
+      const er=ed.getBoundingClientRect(),id=rid();
+      pinAt(er.left+ed.clientLeft+(x0+x1)/2,er.top+ed.clientTop-ed.scrollTop+(y0+y1)/2,target,id);
+      const xy=pinXY(id);if(!xy)return;
+      k.m[id]={s:[p.map((v,i)=>Math.round(v-(i%2?xy[1]:xy[0])))]};}}
+
+  function near(s,sc,ox,oy,x,y){for(let i=0;i<s.length;i+=2)
+    if(Math.hypot(ox+s[i]*sc-x,oy+s[i+1]*sc-y)<10)return true;return false;}
+  function eraseAt(x,y){if(!SEL||!SEL.k)return;const k=SEL.k;
+    const snap=()=>{if(!pen.snapped){snapshot();pen.snapped=true;}};
+    blocks().forEach(b=>{const d=k.b&&k.b[b.dataset.ink];if(!d)return;
+      const w=b.clientWidth,keep=d.s.filter(s=>!near(s,w,b.offsetLeft,b.offsetTop,x,y));
+      if(keep.length===d.s.length)return;snap();d.s=keep;
+      if(!keep.length){/* whole drawing gone: give the empty lines back */
+        const n=Math.max(1,Math.round(b.offsetHeight/lineH()));
+        for(let i=0;i<n;i++){const dv=document.createElement("div");dv.appendChild(document.createElement("br"));b.before(dv);}
+        delete k.b[b.dataset.ink];b.remove();}});
+    for(const id in k.m||{}){const xy=pinXY(id);if(!xy)continue;const m=k.m[id];
+      const keep=m.s.filter(s=>!near(s,1,xy[0],xy[1],x,y));
+      if(keep.length===m.s.length)continue;snap();
+      if(keep.length)m.s=keep;else{delete k.m[id];const a=ed.querySelector('span[data-mk="'+id+'"]');if(a)a.remove();}}}
+
+  function setMode(m){mode=m;ed.style.touchAction="";
     document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m));}
   document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.m)));
-  ta.addEventListener("pointerover",e=>{if(e.pointerType==="pen"&&mode!=="text")ta.style.touchAction="none";});
-  ta.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ta.style.touchAction="";});
-  ta.addEventListener("pointerdown",e=>{
-    if(e.pointerType!=="pen"){ta.style.touchAction="";return;}
+
+  /* pen hovering over the box: stop the browser from scrolling with the pen */
+  ed.addEventListener("pointerover",e=>{if(e.pointerType==="pen"&&mode!=="text")ed.style.touchAction="none";});
+  ed.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ed.style.touchAction="";});
+  ed.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="pen"){ed.style.touchAction="";return;}
     if(!SEL||mode==="text")return;
     e.preventDefault();window.INKING=true;
-    const erase=mode==="erase"||!!(e.buttons&32)||e.button===5;
-    pen={id:e.pointerId,erase,node:SEL,snapped:false};
-    try{ta.setPointerCapture(e.pointerId);}catch(err){}
-    if(erase)eraseAt(pt(e,SEL));
-    else{snapshot();pen.snapped=true;
-      if(!SEL.k)SEL.k={w:ta.clientWidth,s:[]};
-      pen.st=pt(e,SEL);SEL.k.s.push(pen.st);}
+    const er=mode==="erase"||!!(e.buttons&32)||e.button===5;
+    pen={id:e.pointerId,er,node:SEL,snapped:false};
+    try{ed.setPointerCapture(e.pointerId);}catch(err){}
+    const q=pos(e);if(er)eraseAt(q[0],q[1]);else pen.p=[q[0],q[1]];
     later();});
-  ta.addEventListener("pointermove",e=>{
+  ed.addEventListener("pointermove",e=>{
     if(!pen||e.pointerId!==pen.id)return;e.preventDefault();
     const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
-    (evs.length?evs:[e]).forEach(ev=>{const p=pt(ev,pen.node);
-      if(pen.erase)eraseAt(p);
-      else{const st=pen.st,lx=st[st.length-2],ly=st[st.length-1];
-        if(Math.hypot(p[0]-lx,p[1]-ly)>=1.5)st.push(p[0],p[1]);}});
+    (evs.length?evs:[e]).forEach(ev=>{const q=pos(ev);
+      if(pen.er)eraseAt(q[0],q[1]);
+      else{const p=pen.p;if(Math.hypot(q[0]-p[p.length-2],q[1]-p[p.length-1])>=1.5)p.push(q[0],q[1]);}});
     later();});
   function finish(e){if(!pen||e.pointerId!==pen.id)return;
-    const n=pen.node,changed=pen.snapped;pen=null;window.INKING=false;
-    try{ta.releasePointerCapture(e.pointerId);}catch(err){}
-    if(n.k&&!n.k.s.length)delete n.k;
-    if(changed){persist();updateButtons();}
-    fitRoom();later();}
-  ta.addEventListener("pointerup",finish);
-  ta.addEventListener("pointercancel",finish);
+    const pn=pen;window.INKING=false;
+    try{ed.releasePointerCapture(e.pointerId);}catch(err){}
+    if(pn.node===SEL){
+      if(!pn.er&&pn.p){snapshot();commit(pn.p);pen=null;onEdit();updateButtons();}
+      else{pen=null;if(pn.snapped){onEdit();updateButtons();}}}
+    else pen=null;
+    later();}
+  ed.addEventListener("pointerup",finish);
+  ed.addEventListener("pointercancel",finish);
   /* iPad / Android: block the page scroll a pen touch would otherwise start */
   const block=e=>{const t=e.touches&&e.touches[0];
     if(pen||(mode!=="text"&&t&&t.touchType==="stylus"))e.preventDefault();};
-  ta.addEventListener("touchstart",block,{passive:false});
-  ta.addEventListener("touchmove",block,{passive:false});
+  ed.addEventListener("touchstart",block,{passive:false});
+  ed.addEventListener("touchmove",block,{passive:false});
 
-  ta.addEventListener("scroll",later);
-  if(window.ResizeObserver)new ResizeObserver(size).observe(ta);
-  window.addEventListener("resize",size);
-  return{refresh:size};})();
+  ed.addEventListener("scroll",later);
+  ed.addEventListener("input",later);
+  if(window.ResizeObserver)new ResizeObserver(later).observe(ed);
+  window.addEventListener("resize",later);
+  return{refresh};})();
 
 /* ================= BOLD / ITALIC / COLOUR ================= */
 (function(){
   const ed=document.getElementById("tNote"),bar=document.getElementById("noteBar");
   const COLS=["#e8edf7","#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1","#ff5c5c"];
   let range=null;
+  /* show which colour the text at the cursor has */
+  const rgb=v=>(String(v).match(/\d+/g)||[]).slice(0,3).join(",");
+  const hexRgb=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)).join(",");
+  function markColour(){let v="";try{v=document.queryCommandValue("foreColor");}catch(e){}
+    const cur=rgb(v);
+    document.querySelectorAll("#swatches button").forEach(b=>b.classList.toggle("on",!!cur&&hexRgb(b.dataset.c)===cur));}
   document.addEventListener("selectionchange",()=>{const s=getSelection();
-    if(s.rangeCount&&ed.contains(s.anchorNode))range=s.getRangeAt(0).cloneRange();});
+    if(s.rangeCount&&ed.contains(s.anchorNode)){range=s.getRangeAt(0).cloneRange();markColour();}});
   /* tapping a button must not take the cursor/selection out of the note */
   bar.addEventListener("pointerdown",e=>{if(e.target.closest("button"))e.preventDefault();});
   bar.addEventListener("mousedown",e=>{if(e.target.closest("button"))e.preventDefault();});
   function run(cmd,val){ed.focus({preventScroll:true});
     if(range){const s=getSelection();s.removeAllRanges();s.addRange(range);}
     try{document.execCommand("styleWithCSS",false,false);}catch(e){}
-    document.execCommand(cmd,false,val);onEdit();}
+    document.execCommand(cmd,false,val);onEdit();markColour();}
   document.getElementById("fB").addEventListener("click",()=>run("bold"));
   document.getElementById("fI").addEventListener("click",()=>run("italic"));
   const sw=document.getElementById("swatches");
-  COLS.forEach(c=>{const b=document.createElement("button");b.style.background=c;
+  COLS.forEach(c=>{const b=document.createElement("button");b.style.background=c;b.dataset.c=c;
     b.title=c===COLS[0]?"Normal colour":"Colour";b.addEventListener("click",()=>run("foreColor",c));sw.appendChild(b);});
   /* pasted text comes in plain, so it can't bring in odd formatting */
   ed.addEventListener("paste",e=>{e.preventDefault();
