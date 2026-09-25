@@ -157,6 +157,22 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   padding:10px;font-size:14px;font-family:inherit;width:100%}
 #dlg .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #dlg .row button{min-width:90px;min-height:38px}
+/* ---------- unlink picker ---------- */
+#pick{position:fixed;inset:0;z-index:20;background:#05080fcc;display:none;align-items:center;
+  justify-content:center;padding:20px;touch-action:auto}
+#pick.show{display:flex}
+#pick .box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;
+  width:min(420px,100%);max-height:85vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#pick p{margin:0;font-size:13.5px;line-height:1.5}
+#pickNote{color:var(--c3);font-size:12px}
+#pickNote:empty{display:none}
+#pickList{display:flex;flex-direction:column;gap:6px}
+.pk{display:flex;align-items:center;gap:10px;font-size:13.5px;text-transform:none;letter-spacing:0;
+  color:var(--txt);padding:9px 10px;border:1px solid var(--edge);border-radius:8px;cursor:pointer}
+.pk input{width:18px;height:18px;accent-color:#7ee787;margin:0}
+.pkAll{border-style:dashed}
+#pick .row{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+#pick .row button{min-width:90px;min-height:38px}
 
 /* ---------- resizable edit panel ---------- */
 :root{--sideW:330px}
@@ -214,7 +230,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <button onclick="markMove()" id="bPick" title="Pick this node up">✋ Pick up</button>
     <button onclick="dropInto()" id="bDrop" class="go" title="Drop the picked node inside the selected one" disabled="">⤵ Drop into</button>
     <button onclick="startLink('link')" id="bLink" title="Hang this node under more parents">🔗 Link</button>
-    <button onclick="startLink('unlink')" id="bUnlink" title="Disconnect this node from one of its parents">✂ Unlink</button>
+    <button onclick="openUnlink()" id="bUnlink" title="Choose which parents to disconnect it from">✂ Unlink</button>
     <span class="sep"></span>
     <button onclick="undo()" id="bU">Undo</button>
     <span class="sep"></span>
@@ -272,7 +288,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <label>Parents</label>
     <div id="linkList"></div>
     <button id="pLink" style="width:100%" onclick="startLink('link')">🔗 Link to more parents</button>
-    <button id="pUnlink" style="width:100%;margin-top:6px" onclick="startLink('unlink')">✂ Unlink from a parent</button>
+    <button id="pUnlink" style="width:100%;margin-top:6px" onclick="openUnlink()">✂ Unlink from parents</button>
   </div>
   <div id="clipbar" style="display: none; font-size: 11px; color: rgb(126, 231, 135); border: 1px solid rgb(44, 56, 82); border-radius: 8px; padding: 7px 9px; line-height: 1.45;">
     <span id="clipTxt"></span>
@@ -283,8 +299,8 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
     For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
     <b>Several parents:</b> a node can belong to as many parents as you like, and they are all equal. Tap the node, press <b>🔗 Link</b>, then tap every node it should belong to. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) to finish. The node sits centred underneath all its parents.<br>
-    <b>✂ Unlink</b> works the same way: tap the parent you want to disconnect from. A node always keeps at least one parent.<br>
-    It stays visible as long as any of its parents is open. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
+    <b>✂ Unlink</b> opens a list of its parents: tick the ones to disconnect, or tick <b>All</b>.<br>
+    The <b>+ / −</b> button on any of its parents shows or hides it for all of them. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -293,6 +309,10 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
 <div id="sideGrip" title="Drag to resize · double-click to reset"></div>
 
 <div id="toast" class="">Deleted</div>
+<div id="pick"><div class="box"><p id="pickMsg"></p>
+  <label class="pk pkAll"><input type="checkbox" id="pickAll">All</label>
+  <div id="pickList"></div><p id="pickNote"></p>
+  <div class="row"><button id="pickNo">Cancel</button><button id="pickYes" class="go">Unlink</button></div></div></div>
 <div id="dlg"><div class="box"><p id="dlgMsg"></p><input id="dlgIn"><div class="row"><button id="dlgNo">Cancel</button><button id="dlgYes" class="go">OK</button></div></div></div>
 
 <script id="seed" type="application/json">{"v": 3, "stamp": "seed-original", "topics": [{"n": "My First Topic", "d": "Sign in to load your synced notes, or tap the root node and + Child to start.", "open": true, "c": []}]}</script>
@@ -325,7 +345,7 @@ function wrapText(t,wpx,fs){const max=Math.max(6,Math.floor(wpx/(fs*0.55)));
 function layout(root){
   const vis=visibleNodes(root),V=new Set(vis);
   /* shown parents = parents that are on screen and open */
-  vis.forEach(n=>{n.dp=n.P.filter(p=>V.has(p)&&p.open);
+  vis.forEach(n=>{n.dp=isShared(n)?n.P.filter(p=>V.has(p)):n.P.filter(p=>V.has(p)&&p.open);
     n.fl=!!n.parent&&!(n.dp.length===1&&n.dp[0]===n.parent);});
   const treeKids=n=>n.open?n.c.filter(k=>V.has(k)&&!k.fl):[];
   const rows={};let cursor=0;
@@ -379,7 +399,10 @@ function placeShared(root,vis,floats,treeKids){
 
 /* a node is on screen if ANY of its parents is on screen and open */
 function visibleNodes(root){if(!root.K)prep(root);const o=[],seen=new Set();
-  (function w(n){if(seen.has(n))return;seen.add(n);o.push(n);if(n.open)n.K.forEach(w);})(root);return o;}
+  (function w(n){if(seen.has(n))return;seen.add(n);o.push(n);
+    n.K.forEach(k=>{if(k.P.length>1?k.sh!==false:n.open)w(k);});})(root);return o;}
+/* a node with several parents is shown/hidden by ONE switch (sh) that every parent's +/- controls */
+function isShared(n){return !!n.P&&n.P.length>1;}
 function bbox(ns){let a=Infinity,b=-Infinity,c=Infinity,e=-Infinity;
   ns.forEach(n=>{a=Math.min(a,n.x-n.w/2);b=Math.max(b,n.x+n.w/2);
     c=Math.min(c,n.y);e=Math.max(e,n.y+n.h);});
@@ -398,7 +421,7 @@ const SEED=readSeed();
 const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
 function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};
-  if(n.L&&n.L.length)o.L=n.L.slice();return o;}
+  if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;return o;}
 function ROOT(){return LIB.topics[LIB.active];}
 function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
 function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
@@ -640,7 +663,7 @@ function draw(){
       s.setAttribute("x",n.w/2);s.setAttribute("y",n.h+5);
       s.setAttribute("text-anchor","middle");s.setAttribute("font-size","15");
       s.setAttribute("font-family","Segoe UI, Arial, sans-serif");
-      s.setAttribute("fill",STK[d]);s.textContent=n.open?"−":"+";
+      s.setAttribute("fill",STK[d]);s.textContent=showsOpen(n)?"−":"+";
       cg.appendChild(s);
       g.appendChild(cg);}
     if(DRAG&&DRAG.active&&isAncestor(DRAG.node,n))g.setAttribute("opacity",".33");
@@ -656,7 +679,10 @@ function draw(){
   updateModeBar();}
 
 /* expand/collapse WITHOUT refitting — keeps the user's zoom steady */
-function toggleNode(n){n.open=!n.open;persist();draw();}
+function showsOpen(n){return n.K.some(k=>isShared(k)?k.sh!==false:n.open);}
+function toggleNode(n){const closing=showsOpen(n);n.open=!closing;
+  n.K.forEach(k=>{if(isShared(k)){if(closing)k.sh=false;else delete k.sh;}});
+  persist();draw();}
 
 /* ================= HIT TESTING (data-driven, works for mouse+touch) ======= */
 /* true if b is a itself or anywhere below a (through any parent link) */
@@ -778,8 +804,43 @@ function removeParent(ch,p){
     detach(ch);np.c.push(ch);
     ch.L=ch.L.filter(u=>u!==nu);if(!ch.L.length)delete ch.L;}
   else{ch.L=(ch.L||[]).filter(u=>u!==p.u);if(!ch.L.length)delete ch.L;}
+  if(!ch.L){delete ch.sh;ch.parent.open=true;}
   persist();prep(ROOT());drawTabs();
   toast("Removed from \u201c"+shortName(p.n)+"\u201d");}
+
+/* ✂ Unlink: tick which parents to disconnect from, or All */
+function openUnlink(){
+  if(LINKING)return endLink();
+  const n=SEL;if(n&&!n.P)prep(ROOT());
+  if(!n||!n.parent||n.P.length<2)return toast("It only has one parent — nothing to unlink");
+  const box=document.getElementById("pick"),list=document.getElementById("pickList"),
+        all=document.getElementById("pickAll"),yes=document.getElementById("pickYes"),
+        note=document.getElementById("pickNote");
+  document.getElementById("pickMsg").textContent='Unlink \u201c'+shortName(n.n)+'\u201d from:';
+  list.textContent="";const cbs=[];
+  n.P.forEach(p=>{const l=document.createElement("label");l.className="pk";
+    const c=document.createElement("input");c.type="checkbox";c._p=p;
+    l.appendChild(c);l.appendChild(document.createTextNode(shortName(p.n)));
+    list.appendChild(l);cbs.push(c);});
+  function refresh(){const k=cbs.filter(c=>c.checked).length;
+    all.checked=k===cbs.length;yes.disabled=!k;
+    note.textContent=k===cbs.length?"With no parents left, it will move to the top of this topic.":"";}
+  cbs.forEach(c=>c.onchange=refresh);
+  all.checked=false;all.onchange=()=>{cbs.forEach(c=>c.checked=all.checked);refresh();};
+  refresh();box.classList.add("show");
+  document.getElementById("pickNo").onclick=()=>box.classList.remove("show");
+  yes.onclick=()=>{const sel=cbs.filter(c=>c.checked).map(c=>c._p);
+    box.classList.remove("show");if(sel.length)unlinkFrom(n,sel);};}
+function unlinkFrom(n,sel){
+  const root=ROOT();snapshot();
+  const remaining=n.P.filter(p=>!sel.includes(p));
+  const home=!remaining.length?root:(remaining.includes(n.parent)?n.parent:remaining[0]);
+  if(home!==n.parent){detach(n);home.c.push(n);}
+  const rest=remaining.filter(p=>p!==home).map(p=>p.u);
+  if(rest.length)n.L=rest;else delete n.L;
+  if(remaining.length<2){delete n.sh;home.open=true;}
+  persist();prep(root);drawTabs();select(n);
+  toast(remaining.length?"Unlinked from "+sel.length+" parent"+(sel.length===1?"":"s"):"Unlinked from all — moved to the top of this topic");}
 
 function toggleLinkTarget(p){
   const ch=LINKING;
@@ -1105,7 +1166,10 @@ svg.addEventListener("wheel",e=>{e.preventDefault();
 let lastTap=0;
 
 function setLevel(k){const r=ROOT();if(!r)return;
-  (function s(n){n.open=n.depth<k;n.c.forEach(s);})(r);
+  prep(r);
+  (function s(n){n.open=n.depth<k;
+    if(isShared(n)){if(Math.max(...n.P.map(p=>p.depth))<k)delete n.sh;else n.sh=false;}
+    n.c.forEach(s);})(r);
   HITS=null;document.getElementById("q").value="";
   persist();draw();fit();}
 
@@ -1114,7 +1178,8 @@ function doSearch(q){const term=q.trim().toLowerCase(),r=ROOT();if(!r)return;pre
   const hits=new Set();
   (function s(n){const t=(n.n+" "+(n.d||"")).toLowerCase();
     if(t.includes(term)){hits.add(n.id);
-      (function up(k){(k.P||[]).forEach(p=>{if(hits.has(p.id))return;hits.add(p.id);p.open=true;up(p);});})(n);}
+      (function up(k){if(isShared(k))delete k.sh;
+        (k.P||[]).forEach(p=>{if(hits.has(p.id))return;hits.add(p.id);p.open=true;up(p);});})(n);}
     n.c.forEach(s);})(r);
   HITS=hits;draw();fit();}
 
@@ -1162,7 +1227,9 @@ async function resetAll(){if(!await ask("Discard every topic and start over with
 
 /* ================= KEYBOARD ================= */
 document.addEventListener("keydown",e=>{
-  const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  const pk=document.getElementById("pick");
+  if(pk.classList.contains("show")){if(e.key==="Escape")pk.classList.remove("show");return;}
+  const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.type!=="checkbox";
   if(typing){if(e.key==="Escape")document.activeElement.blur();return;}
   if(e.key==="Escape"){
     if(DRAG){endDrag(false);return;}
