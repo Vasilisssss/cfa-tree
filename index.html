@@ -148,6 +148,27 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   padding:10px;font-size:14px;font-family:inherit;width:100%}
 #dlg .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #dlg .row button{min-width:90px;min-height:38px}
+
+/* ---------- resizable edit panel ---------- */
+:root{--sideW:330px}
+#side{width:var(--sideW)}
+#sideGrip{position:absolute;z-index:9;touch-action:none;
+  top:calc(var(--topH) + 8px);bottom:13px;right:calc(13px + var(--sideW) - 7px);
+  width:14px;cursor:ew-resize}
+#sideGrip::after{content:"";position:absolute;left:5px;top:50%;width:4px;height:48px;
+  margin-top:-24px;border-radius:3px;background:#3a4a68}
+#sideGrip:hover::after,#sideGrip.on::after{background:var(--c2)}
+#side.hide + #sideGrip{display:none}
+@media (max-width:1100px){
+  #side{width:auto;height:var(--sideH,52vh)}
+  #sideGrip{top:auto;left:13px;right:13px;width:auto;height:16px;cursor:ns-resize;
+    bottom:calc(13px + var(--sideH,52vh) - 8px)}
+  #sideGrip::after{left:50%;top:6px;width:48px;height:4px;margin:0 0 0 -24px}
+}
+@media (max-width:620px){
+  #side{height:var(--sideH,58vh)}
+  #sideGrip{bottom:calc(13px + var(--sideH,58vh) - 8px)}
+}
 </style>
 </head>
 <body>
@@ -238,9 +259,11 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
     For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
+    <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
   </div>
 </div>
+<div id="sideGrip" title="Drag to resize · double-click to reset"></div>
 
 <div id="toast" class="">Deleted</div>
 <div id="dlg"><div class="box"><p id="dlgMsg"></p><input id="dlgIn"><div class="row"><button id="dlgNo">Cancel</button><button id="dlgYes" class="go">OK</button></div></div></div>
@@ -741,9 +764,10 @@ function viewArea(){
   const narrow=innerWidth<=1100;
   const panelOpen=!side.classList.contains("hide");
   const left=8;
-  const right=(panelOpen&&!narrow)?360:70;           /* leave room for zoom dock */
+  const sr=side.getBoundingClientRect();
+  const right=(panelOpen&&!narrow)?(innerWidth-sr.left)+10:70;   /* leave room for zoom dock / panel */
   const top=topH+10;
-  const bottom=(panelOpen&&narrow)?innerHeight*0.56:20;
+  const bottom=(panelOpen&&narrow)?(innerHeight-sr.top)+10:20;
   return{x:left,y:top,w:Math.max(160,innerWidth-left-right),
          h:Math.max(160,innerHeight-top-bottom)};}
 
@@ -970,6 +994,31 @@ document.addEventListener("keydown",e=>{
 /* ================= BOOT ================= */
 LIB=load();drawTabs();draw();fit();
 Sync.start();
+
+/* ================= RESIZABLE EDIT PANEL =================
+   Computer: drag the panel's left edge to change its width.
+   Tablet/phone: drag its top edge to change its height.
+   The size is remembered on this device. Double-click the handle to reset. */
+(function(){
+  const g=document.getElementById("sideGrip"),R=document.documentElement.style,K="cfa_side_size";
+  let s={};try{s=JSON.parse(localStorage.getItem(K)||"{}");}catch(e){}
+  if(s.w)R.setProperty("--sideW",s.w+"px");
+  if(s.h)R.setProperty("--sideH",s.h+"px");
+  let on=false;const narrow=()=>innerWidth<=1100;
+  g.addEventListener("pointerdown",e=>{on=true;g.classList.add("on");
+    try{g.setPointerCapture(e.pointerId);}catch(err){}e.preventDefault();});
+  g.addEventListener("pointermove",e=>{if(!on)return;
+    if(narrow()){s.h=Math.round(Math.min(innerHeight-140,Math.max(160,innerHeight-13-e.clientY)));
+      R.setProperty("--sideH",s.h+"px");}
+    else{s.w=Math.round(Math.min(innerWidth-160,Math.max(260,innerWidth-13-e.clientX)));
+      R.setProperty("--sideW",s.w+"px");}});
+  const end=()=>{if(!on)return;on=false;g.classList.remove("on");
+    try{localStorage.setItem(K,JSON.stringify(s));}catch(e){}};
+  g.addEventListener("pointerup",end);g.addEventListener("pointercancel",end);
+  g.addEventListener("dblclick",()=>{s={};R.removeProperty("--sideW");R.removeProperty("--sideH");
+    try{localStorage.removeItem(K);}catch(e){}});
+})();
+
 let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(fit,150);});
 window.addEventListener("orientationchange",()=>setTimeout(fit,320));
 
