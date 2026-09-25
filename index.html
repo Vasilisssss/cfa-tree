@@ -95,10 +95,17 @@ text{pointer-events:none;user-select:none}
   display:flex;align-items:center}
 #closeSide{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;
   padding:0 4px;min-height:auto}
-.path{font-size:10.5px;color:var(--muted);line-height:1.45}
 label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 #tName,#tNote{width:100%;background:#0b1020;color:var(--txt);border:1px solid var(--edge);
   border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical}
+/* the note box has its own resize handle, 1.5x the normal size */
+#noteBox{position:relative}
+#noteGrip{position:absolute;right:2px;bottom:2px;width:22px;height:22px;cursor:ns-resize;touch-action:none;
+  background:linear-gradient(135deg,transparent 45%,#6f82a8 45%,#6f82a8 52%,transparent 52%,
+    transparent 66%,#6f82a8 66%,#6f82a8 73%,transparent 73%)}
+#noteGrip:hover,#noteGrip.on{background:linear-gradient(135deg,transparent 45%,#7ee787 45%,#7ee787 52%,transparent 52%,
+    transparent 66%,#7ee787 66%,#7ee787 73%,transparent 73%)}
+#tNote{resize:none !important}
 #tNote{min-height:150px;height:220px;line-height:1.55;display:block;overflow:auto;outline:none;
   white-space:pre-wrap;overflow-wrap:break-word}
 #tNote:focus{border-color:#44567c}
@@ -270,7 +277,6 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
 
 <div id="side" class="hide">
   <h3>Edit node <button id="closeSide" onclick="closeSide()">×</button></h3>
-  <div class="path" id="sPath"></div>
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
   <div><label>Note / explanation</label>
     <div id="noteBar">
@@ -280,7 +286,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
       <button id="fU" title="Underline" style="text-decoration:underline">U</button>
       <span id="swatches"></span>
     </div>
-    <div id="tNote" contenteditable="true" oninput="onEdit()"></div></div>
+    <div id="noteBox"><div id="tNote" contenteditable="true" oninput="onEdit()"></div><div id="noteGrip" title="Drag to resize"></div></div></div>
   <div class="grid">
     <button onclick="addNode('child')">+ Child</button>
     <button onclick="addNode('sibling')">+ Sibling</button>
@@ -770,6 +776,7 @@ function outdent(){
   persist();prep(ROOT());drawTabs();draw();toast("Moved up a level");}
 
 function markMove(){
+  if(CLIP)return cancelMove();          /* pressing Pick up again cancels the move */
   if(!SEL||!SEL.parent)return toast("Select a node to move");
   LINKING=null;CLIP=SEL;draw();
   toast("\u201c"+shortName(CLIP.n)+"\u201d picked up — now tap the destination and press Drop into");}
@@ -932,11 +939,6 @@ function drawOverlay(){
 
 function select(n){SEL=n;side.classList.remove("hide");
   if(!n.P)prep(ROOT());
-  let txt;
-  if(!n.parent)txt="— root of this topic —";
-  else if(n.P.length>1)txt="Belongs to: "+n.P.map(p=>shortName(p.n)).join(", ");
-  else{const chain=[];let p=n.parent;while(p){chain.unshift(p.n);p=p.parent;}txt=chain.join("  ›  ");}
-  document.getElementById("sPath").textContent=txt;
   document.getElementById("tName").value=n.n;
   document.getElementById("tNote").innerHTML=noteHTML(n);
   NoteSize.load(n);
@@ -1302,6 +1304,19 @@ const NoteSize=(function(){
     setH=h;map[cur]=Math.round(h);
     try{localStorage.setItem(KEY,JSON.stringify(map));}catch(e){}}).observe(ed);
   return{load};})();
+
+/* ================= NOTE BOX RESIZE HANDLE ================= */
+(function(){
+  const g=document.getElementById("noteGrip"),ed=document.getElementById("tNote");
+  let y0=0,h0=0,on=false;
+  g.addEventListener("pointerdown",e=>{on=true;y0=e.clientY;h0=ed.offsetHeight;g.classList.add("on");
+    try{g.setPointerCapture(e.pointerId);}catch(err){}e.preventDefault();});
+  g.addEventListener("pointermove",e=>{if(!on)return;
+    const min=parseFloat(getComputedStyle(ed).minHeight)||110;
+    ed.style.height=Math.max(min,Math.round(h0+e.clientY-y0))+"px";});
+  const end=()=>{on=false;g.classList.remove("on");};
+  g.addEventListener("pointerup",end);g.addEventListener("pointercancel",end);
+})();
 
 /* ================= BOLD / ITALIC / UNDERLINE / COLOUR ================= */
 (function(){
