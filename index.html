@@ -375,7 +375,10 @@ function placeShared(root,vis,floats,treeKids){
     const ps=f.dp;if(!ps.length){placed.add(f);return;}
     const low=ps.reduce((a,p)=>(p.y+p.h>a.y+a.h?p:a));
     const tx=ps.reduce((s,p)=>s+p.x,0)/ps.length;
-    const ty=low.y+low.h+VGAP[Math.min(low.depth,VGAP.length-1)];
+    let ty=low.y+low.h+VGAP[Math.min(low.depth,VGAP.length-1)];
+    /* go below the normal children of all its parents, in its own row */
+    ps.forEach(p=>treeKids(p).forEach(k=>{
+      ty=Math.max(ty,k.y+k.h+VGAP[Math.min(k.depth,VGAP.length-1)]);}));
     const S=branch(f),inS=new Set(S);
     const others=vis.filter(k=>!inS.has(k)&&placed.has(groupOf(k)));
     const dx=tx-f.x,dy0=ty-f.y;S.forEach(k=>{k.x+=dx;k.y+=dy0;});
@@ -653,7 +656,10 @@ function draw(){
       const ci=document.createElementNS(NS,"circle");
       ci.setAttribute("cx",n.w/2);ci.setAttribute("cy",n.h);ci.setAttribute("r",11);
       ci.setAttribute("fill","#0e1320");ci.setAttribute("stroke",STK[d]);
-      ci.setAttribute("stroke-width","1.6");cg.appendChild(ci);
+      ci.setAttribute("stroke-width","1.6");
+      /* dashed = only the shared node is under it; solid = it has children of its own */
+      if(!n.K.some(k=>!isShared(k)))ci.setAttribute("stroke-dasharray","3 2.5");
+      cg.appendChild(ci);
       const s=document.createElementNS(NS,"text");
       s.setAttribute("x",n.w/2);s.setAttribute("y",n.h+5);
       s.setAttribute("text-anchor","middle");s.setAttribute("font-size","15");
