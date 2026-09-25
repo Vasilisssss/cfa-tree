@@ -102,19 +102,13 @@ label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:
 #tNote{min-height:150px;height:220px;line-height:1.55;display:block;overflow:auto;outline:none;
   white-space:pre-wrap;overflow-wrap:break-word}
 #tNote:focus{border-color:#44567c}
-#tNote{position:relative}
-#tNote .inkb{user-select:none;-webkit-user-select:none;margin:0}
-#tNote .inkb canvas{display:block;width:100%}
 #noteBar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0 6px}
-#noteBar .nbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
 #noteBar button{min-height:30px;padding:4px 10px;font-size:12px}
 #noteBar button.on{border-color:var(--c2);color:var(--c2);background:#12321c}
 #swatches{display:flex;gap:6px;align-items:center;margin-left:2px}
 #swatches button{width:24px;height:24px;min-height:24px;padding:0;border-radius:50%;
   border:2px solid #0b1020;box-shadow:0 0 0 1px #3a4a68}
 #swatches button.on{box-shadow:0 0 0 2px #ffffff;transform:scale(1.15)}
-#noteWrap{position:relative}
-#ink{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
 .hint{font-size:10.5px;color:var(--muted);line-height:1.55}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radius:4px;
@@ -280,14 +274,12 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
   <div><label>Note / explanation</label>
     <div id="noteBar">
-      <span class="nbl">Pen</span>
-      <button data-m="text" class="on">Text</button><button data-m="draw">Draw</button><button data-m="erase">Erase</button>
-      <span class="sep"></span>
       <button id="fB" title="Bold" style="font-weight:700">B</button>
       <button id="fI" title="Italic" style="font-style:italic;font-family:Georgia,serif">I</button>
+      <button id="fU" title="Underline" style="text-decoration:underline">U</button>
       <span id="swatches"></span>
     </div>
-    <div id="noteWrap"><div id="tNote" contenteditable="true" oninput="onEdit()"></div><canvas id="ink"></canvas></div></div>
+    <div id="tNote" contenteditable="true" oninput="onEdit()"></div></div>
   <div class="grid">
     <button onclick="addNode('child')">+ Child</button>
     <button onclick="addNode('sibling')">+ Sibling</button>
@@ -315,7 +307,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>Several parents:</b> a node can belong to as many parents as you like, and they are all equal. Tap the node, press <b>🔗 Link</b>, then tap every node it should belong to. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) to finish. The node sits centred underneath all its parents.<br>
     <b>✂ Unlink</b> opens a list of its parents: tick the ones to disconnect, or tick <b>All</b>.<br>
     The <b>+ / −</b> button on any of its parents shows or hides it for all of them. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
-    <b>Note box:</b> <b>B</b> and <i>I</i> make selected text bold or italic, and the colour dots colour it. The <b>Pen</b> switch sets what the stylus (and on a computer, the mouse) does: <b>Text</b> (normal, including handwriting-to-text), <b>Draw</b> or <b>Erase</b>. Finger and keyboard always type.<br><br>
+    <b>Note box:</b> <b>B</b>, <i>I</i> and <u>U</u> make selected text bold, italic or underlined, and the colour dots colour it.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -445,7 +437,7 @@ const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
 function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};if(n.rt)o.rt=1;
   if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;
-  if(n.k)o.k=JSON.parse(JSON.stringify(n.k));return o;}
+  return o;}
 function ROOT(){return LIB.topics[LIB.active];}
 function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
 function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
@@ -476,7 +468,7 @@ const Sync=(function(){
     document.getElementById("signOut").style.display=signedIn?"":"none";}
   const topicsJSON=()=>JSON.stringify(LIB.topics.map(clone));
   const when=t=>{try{return new Date(t).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});}catch(e){return"";}};
-  const typing=()=>{const a=document.activeElement||{};return window.INKING||!!a.isContentEditable||/INPUT|TEXTAREA/.test(a.tagName||"");};
+  const typing=()=>{const a=document.activeElement||{};return !!a.isContentEditable||/INPUT|TEXTAREA/.test(a.tagName||"");};
 
   function changed(){meta.dirty=true;saveMeta();if(!uid)return;
     pill("busy","Saving…");clearTimeout(timer);timer=setTimeout(()=>{timer=null;push();},900);}
@@ -957,15 +949,12 @@ function select(n){SEL=n;side.classList.remove("hide");
   else{const chain=[];let p=n.parent;while(p){chain.unshift(p.n);p=p.parent;}txt=chain.join("  ›  ");}
   document.getElementById("sPath").textContent=txt;
   document.getElementById("tName").value=n.n;
-  migrateInk(n);
-  const edBox=document.getElementById("tNote");
-  edBox.innerHTML=noteHTML(n);normalizeLines(edBox);
+  document.getElementById("tNote").innerHTML=noteHTML(n);
   drawLinkList(n);
-  Ink.refresh();
   draw();}
 function closeSide(){side.classList.add("hide");}
 
-/* Notes are saved as simple HTML (bold, italic, colour, line breaks only).
+/* Notes are saved as simple HTML (bold, italic, underline, colour, line breaks only).
    Older plain-text notes (no rt flag) are shown as they were.            */
 function escHTML(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function cleanHTML(html){const t=document.createElement("template");t.innerHTML=html||"";
@@ -974,50 +963,25 @@ function cleanHTML(html){const t=document.createElement("template");t.innerHTML=
     if(n.nodeType===3){dst.appendChild(document.createTextNode(n.nodeValue));return;}
     if(n.nodeType!==1)return;const tag=n.tagName;
     if(/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|TEMPLATE|LINK|META)$/.test(tag))return;
-    const okId=v=>/^[a-z0-9]{1,12}$/.test(v||"");
-    if(tag==="DIV"&&okId(n.getAttribute("data-ink"))){           /* drawing space */
-      const d=document.createElement("div");d.setAttribute("data-ink",n.getAttribute("data-ink"));
-      dst.appendChild(d);return;}
-    if(tag==="SPAN"&&okId(n.getAttribute("data-mk"))){            /* pin for a mark on a word */
-      const m=document.createElement("span");m.setAttribute("data-mk",n.getAttribute("data-mk"));
-      dst.appendChild(m);copy(n,dst);return;}
+    if(n.hasAttribute("data-ink"))return;          /* leftover from the removed drawing feature */
     let el=null;
-    if(/^(B|STRONG|I|EM|BR|DIV|P)$/.test(tag))el=document.createElement(tag.toLowerCase());
+    if(/^(B|STRONG|I|EM|U|BR|DIV|P)$/.test(tag))el=document.createElement(tag.toLowerCase());
     else if(tag==="SPAN"||tag==="FONT"){const sp=document.createElement("span");
       const c=tag==="FONT"?n.getAttribute("color"):n.style.color;if(c)sp.style.color=c;
       if(tag==="SPAN"){if(n.style.fontWeight)sp.style.fontWeight=n.style.fontWeight;
-        if(n.style.fontStyle)sp.style.fontStyle=n.style.fontStyle;}
+        if(n.style.fontStyle)sp.style.fontStyle=n.style.fontStyle;
+        if(/underline/.test(n.style.textDecoration||n.style.textDecorationLine||""))sp.style.textDecoration="underline";}
       if(sp.getAttribute("style"))el=sp;}
     if(el){dst.appendChild(el);if(tag!=="BR")copy(n,el);}else copy(n,dst);});})(t.content,out);
   return out.innerHTML;}
 function noteHTML(n){return n.rt?cleanHTML(n.d)
   :(n.d?escHTML(n.d).split("\n").map(l=>"<div>"+(l||"<br>")+"</div>").join(""):"");}
-/* every line of the note becomes its own block, so empty lines can turn into drawing space */
-function normalizeLines(ed){const out=[];let cur=null;
-  [...ed.childNodes].forEach(n=>{
-    if(n.nodeType===1&&/^(DIV|P)$/.test(n.tagName)){cur=null;out.push(n);return;}
-    if(n.nodeType===1&&n.tagName==="BR"){if(cur)cur=null;
-      else{const d=document.createElement("div");d.appendChild(document.createElement("br"));out.push(d);}return;}
-    if(!cur){cur=document.createElement("div");out.push(cur);}cur.appendChild(n);});
-  if(!out.length){const d=document.createElement("div");d.appendChild(document.createElement("br"));out.push(d);}
-  ed.replaceChildren(...out);}
-/* drawings from the earlier version (one layer over the whole box) become a drawing space at the end */
-function migrateInk(n){if(!n.k||!Array.isArray(n.k.s))return;
-  const w=n.k.w||300;let low=0;n.k.s.forEach(p=>{for(let i=1;i<p.length;i+=2)low=Math.max(low,p[i]);});
-  const id=rid(),html=noteHTML(n);
-  n.k={b:{[id]:{r:Math.max(0.15,(low+10)/w),s:n.k.s.map(p=>p.map(v=>Math.round(v/w*10000)/10000))}},m:{}};
-  n.d=html+'<div data-ink="'+id+'"></div>';n.rt=1;}
 function noteText(n){if(!n.rt)return n.d||"";const t=document.createElement("template");t.innerHTML=n.d||"";return t.content.textContent;}
 function onEdit(){if(!SEL)return;
   SEL.n=document.getElementById("tName").value;
   const ed=document.getElementById("tNote");
-  const hasInk=ed.querySelector("[data-ink],[data-mk]");
-  if(ed.textContent.trim()||hasInk){SEL.d=cleanHTML(ed.innerHTML);SEL.rt=1;}else{SEL.d="";delete SEL.rt;}
-  if(SEL.k){const B=new Set([...ed.querySelectorAll("[data-ink]")].map(x=>x.dataset.ink)),
-      M=new Set([...ed.querySelectorAll("[data-mk]")].map(x=>x.dataset.mk));
-    for(const id in SEL.k.b||{})if(!B.has(id))delete SEL.k.b[id];
-    for(const id in SEL.k.m||{})if(!M.has(id))delete SEL.k.m[id];
-    if(!Object.keys(SEL.k.b||{}).length&&!Object.keys(SEL.k.m||{}).length)delete SEL.k;}
+  if(ed.textContent.trim()){SEL.d=cleanHTML(ed.innerHTML);SEL.rt=1;}else{SEL.d="";delete SEL.rt;}
+  delete SEL.k;
   persist();drawTabs();draw();}
 function updateButtons(){const h=!!SEL;
   const g=id=>document.getElementById(id);
@@ -1331,167 +1295,8 @@ document.addEventListener("keydown",e=>{
   else if(e.ctrlKey&&e.key==="ArrowRight")switchTopic((LIB.active+1)%LIB.topics.length);
   else if(e.ctrlKey&&e.key==="ArrowLeft")switchTopic((LIB.active-1+LIB.topics.length)%LIB.topics.length);});
 
-/* ================= STYLUS INK IN THE NOTE BOX =================
-   Pen switch: Text (pen behaves normally) / Draw / Erase. Finger + keyboard always type.
-   Drawing on EMPTY lines turns those lines into drawing space that is part of the
-   note, so it always stays between the same sentences and scales with the width.
-   Drawing ON words pins the mark to the nearest word, so it follows that word.
-   Stored on the node: k = { b: {id: {r: height/width, s: strokes (0-1 of width)}},
-                             m: {id: {s: strokes in px from the word pin}} }       */
-const Ink=(function(){
-  const ed=document.getElementById("tNote"),ov=document.getElementById("ink"),oc=ov.getContext("2d");
-  let pen=null,raf=0,mode="text";
-  try{document.execCommand("defaultParagraphSeparator",false,"div");}catch(e){}
-  const dpr=()=>window.devicePixelRatio||1;
-  const K=()=>{if(!SEL.k)SEL.k={b:{},m:{}};SEL.k.b=SEL.k.b||{};SEL.k.m=SEL.k.m||{};return SEL.k;};
-  const isInk=el=>el.hasAttribute&&el.hasAttribute("data-ink");
-  const blank=el=>!isInk(el)&&el.textContent===""&&!(el.querySelector&&el.querySelector("[data-mk]"));
-  const blocks=()=>[...ed.querySelectorAll("div[data-ink]")];
-  const lineH=()=>parseFloat(getComputedStyle(ed).lineHeight)||20;
-  function pos(e){const r=ed.getBoundingClientRect();
-    return[e.clientX-r.left-ed.clientLeft,e.clientY-r.top-ed.clientTop+ed.scrollTop];}
-  function style(c){c.lineCap="round";c.lineJoin="round";c.strokeStyle="#e8edf7";c.lineWidth=2.2;}
-  function path(c,p,sc,ox,oy){c.beginPath();c.moveTo(ox+p[0]*sc,oy+p[1]*sc);
-    if(p.length===2)c.lineTo(ox+p[0]*sc+0.1,oy+p[1]*sc);
-    for(let i=2;i<p.length;i+=2)c.lineTo(ox+p[i]*sc,oy+p[i+1]*sc);c.stroke();}
-  /* every drawing space always has a normal line after it, so you can keep writing below it */
-  function lineAfter(b){let n=b.nextElementSibling;
-    if(!n||isInk(n)){n=document.createElement("div");n.appendChild(document.createElement("br"));b.after(n);}
-    return n;}
-  function hydrate(){blocks().forEach(b=>{lineAfter(b);if(b._ok)return;b._ok=1;b.contentEditable="false";
-    b.className="inkb";b.appendChild(document.createElement("canvas"));});}
-  function drawBlock(b){const cv=b.querySelector("canvas");if(!cv)return;
-    const data=SEL&&SEL.k&&SEL.k.b&&SEL.k.b[b.dataset.ink];
-    const w=b.clientWidth,h=Math.max(8,Math.round(w*(data?data.r:0.2))),d=dpr();
-    cv.style.height=h+"px";const W=Math.round(w*d),H=Math.round(h*d);
-    if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
-    const c=cv.getContext("2d");c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);
-    if(!data)return;c.setTransform(d,0,0,d,0,0);style(c);data.s.forEach(p=>path(c,p,w,0,0));}
-  function pinXY(id){const a=ed.querySelector('span[data-mk="'+id+'"]');if(!a)return null;
-    const r=a.getBoundingClientRect(),er=ed.getBoundingClientRect();
-    return[r.left-er.left-ed.clientLeft,r.top-er.top-ed.clientTop+ed.scrollTop];}
-  function drawOverlay(){const w=ed.offsetWidth,h=ed.offsetHeight,d=dpr();
-    ov.style.left=ed.offsetLeft+"px";ov.style.top=ed.offsetTop+"px";ov.style.width=w+"px";ov.style.height=h+"px";
-    const W=Math.round(w*d),H=Math.round(h*d);if(ov.width!==W||ov.height!==H){ov.width=W;ov.height=H;}
-    oc.setTransform(1,0,0,1,0,0);oc.clearRect(0,0,W,H);
-    oc.setTransform(d,0,0,d,ed.clientLeft*d,(ed.clientTop-ed.scrollTop)*d);style(oc);
-    /* keep marks inside the box */
-    oc.save();oc.beginPath();oc.rect(0,ed.scrollTop,ed.clientWidth,ed.clientHeight);oc.clip();
-    const m=SEL&&SEL.k&&SEL.k.m;
-    if(m)for(const id in m){const xy=pinXY(id);if(xy)m[id].s.forEach(p=>path(oc,p,1,xy[0],xy[1]));}
-    if(pen&&!pen.er&&pen.p)path(oc,pen.p,1,0,0);
-    oc.restore();}
-  function drawAll(){raf=0;blocks().forEach(drawBlock);drawOverlay();}
-  const later=()=>{if(!raf)raf=requestAnimationFrame(drawAll);};
-  function refresh(){hydrate();drawAll();}
 
-  /* put an invisible pin just before the word nearest to (clientX, clientY) */
-  function pinAt(cx,cy,fallback,id){const sp=document.createElement("span");sp.setAttribute("data-mk",id);
-    let rg=null;
-    try{if(document.caretRangeFromPoint)rg=document.caretRangeFromPoint(cx,cy);
-      else if(document.caretPositionFromPoint){const c=document.caretPositionFromPoint(cx,cy);
-        if(c){rg=document.createRange();rg.setStart(c.offsetNode,c.offset);}}}catch(e){}
-    if(rg&&ed.contains(rg.startContainer)&&!rg.startContainer.closest?.("[data-ink]")){
-      let node=rg.startContainer,off=rg.startOffset;
-      if(node.nodeType===3){const t=node.nodeValue;while(off>0&&!/\s/.test(t[off-1]))off--;}
-      const r2=document.createRange();r2.setStart(node,off);r2.collapse(true);r2.insertNode(sp);}
-    else fallback.insertBefore(sp,fallback.firstChild);}
-
-  function commit(p){
-    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
-    for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);y0=Math.min(y0,p[i+1]);y1=Math.max(y1,p[i+1]);}
-    const kids=[...ed.children];
-    const hit=kids.filter(k=>k.offsetTop<y1+1&&k.offsetTop+k.offsetHeight>y0-1);
-    const k=K();
-    if(hit.length&&hit.every(x=>blank(x)||isInk(x))){
-      /* empty lines -> drawing space */
-      let b=hit.find(isInk);
-      if(!b){const id=rid(),top=hit[0].offsetTop,last=hit[hit.length-1];
-        const w=hit[0].clientWidth||ed.clientWidth;
-        k.b[id]={r:(last.offsetTop+last.offsetHeight-top)/w,s:[]};
-        b=document.createElement("div");b.setAttribute("data-ink",id);hit[0].before(b);hydrate();}
-      const data=k.b[b.dataset.ink];
-      hit.forEach(x=>{if(x!==b&&blank(x))x.remove();});
-      lineAfter(b);
-      const w=b.clientWidth,bx=b.offsetLeft,by=b.offsetTop;
-      data.s.push(p.map((v,i)=>Math.round((i%2?(v-by):(v-bx))/w*10000)/10000));
-      const need=(y1-by+6)/w;if(need>data.r)data.r=need;
-    }else{
-      /* on words -> mark pinned to the nearest word */
-      const target=hit.find(x=>!blank(x)&&!isInk(x))||kids.find(x=>!isInk(x))||ed;
-      const er=ed.getBoundingClientRect(),id=rid();
-      pinAt(er.left+ed.clientLeft+(x0+x1)/2,er.top+ed.clientTop-ed.scrollTop+(y0+y1)/2,target,id);
-      const xy=pinXY(id);if(!xy)return;
-      k.m[id]={s:[p.map((v,i)=>Math.round(v-(i%2?xy[1]:xy[0])))]};}}
-
-  function near(s,sc,ox,oy,x,y){for(let i=0;i<s.length;i+=2)
-    if(Math.hypot(ox+s[i]*sc-x,oy+s[i+1]*sc-y)<10)return true;return false;}
-  function eraseAt(x,y){if(!SEL||!SEL.k)return;const k=SEL.k;
-    const snap=()=>{if(!pen.snapped){snapshot();pen.snapped=true;}};
-    blocks().forEach(b=>{const d=k.b&&k.b[b.dataset.ink];if(!d)return;
-      const w=b.clientWidth,keep=d.s.filter(s=>!near(s,w,b.offsetLeft,b.offsetTop,x,y));
-      if(keep.length===d.s.length)return;snap();d.s=keep;
-      if(!keep.length){/* whole drawing gone: give the empty lines back */
-        const n=Math.max(1,Math.round(b.offsetHeight/lineH()));
-        for(let i=0;i<n;i++){const dv=document.createElement("div");dv.appendChild(document.createElement("br"));b.before(dv);}
-        delete k.b[b.dataset.ink];b.remove();}});
-    for(const id in k.m||{}){const xy=pinXY(id);if(!xy)continue;const m=k.m[id];
-      const keep=m.s.filter(s=>!near(s,1,xy[0],xy[1],x,y));
-      if(keep.length===m.s.length)continue;snap();
-      if(keep.length)m.s=keep;else{delete k.m[id];const a=ed.querySelector('span[data-mk="'+id+'"]');if(a)a.remove();}}}
-
-  function setMode(m){mode=m;ed.style.touchAction="";
-    document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m));}
-  document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.m)));
-
-  /* pen hovering over the box: stop the browser from scrolling with the pen */
-  ed.addEventListener("pointerover",e=>{if(e.pointerType==="pen"&&mode!=="text")ed.style.touchAction="none";});
-  ed.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ed.style.touchAction="";});
-  ed.addEventListener("pointerdown",e=>{
-    /* the pen draws on Draw/Erase; on a computer the mouse/trackpad does too */
-    const mouse=e.pointerType==="mouse"&&e.button===0;
-    if(e.pointerType!=="pen"&&!mouse){ed.style.touchAction="";return;}
-    if(!SEL||mode==="text")return;
-    e.preventDefault();window.INKING=true;
-    const er=mode==="erase"||!!(e.buttons&32)||e.button===5;
-    pen={id:e.pointerId,er,node:SEL,snapped:false};
-    try{ed.setPointerCapture(e.pointerId);}catch(err){}
-    const q=pos(e);if(er)eraseAt(q[0],q[1]);else pen.p=[q[0],q[1]];
-    later();});
-  ed.addEventListener("pointermove",e=>{
-    if(!pen||e.pointerId!==pen.id)return;e.preventDefault();
-    const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
-    (evs.length?evs:[e]).forEach(ev=>{const q=pos(ev);
-      if(pen.er)eraseAt(q[0],q[1]);
-      else{const p=pen.p;if(Math.hypot(q[0]-p[p.length-2],q[1]-p[p.length-1])>=1.5)p.push(q[0],q[1]);}});
-    later();});
-  function finish(e){if(!pen||e.pointerId!==pen.id)return;
-    const pn=pen;window.INKING=false;
-    try{ed.releasePointerCapture(e.pointerId);}catch(err){}
-    if(pn.node===SEL){
-      if(!pn.er&&pn.p){snapshot();commit(pn.p);pen=null;onEdit();updateButtons();}
-      else{pen=null;if(pn.snapped){onEdit();updateButtons();}}}
-    else pen=null;
-    later();}
-  ed.addEventListener("pointerup",finish);
-  ed.addEventListener("pointercancel",finish);
-  /* iPad / Android: block the page scroll a pen touch would otherwise start */
-  const block=e=>{const t=e.touches&&e.touches[0];
-    if(pen||(mode!=="text"&&t&&t.touchType==="stylus"))e.preventDefault();};
-  ed.addEventListener("touchstart",block,{passive:false});
-  ed.addEventListener("touchmove",block,{passive:false});
-
-  /* tapping a drawing (pen on Text, finger or mouse) puts the cursor on the line right after it */
-  ed.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-ink]");
-    if(!b||pen||mode!=="text")return;const n=lineAfter(b);const r=document.createRange();r.setStart(n,0);r.collapse(true);
-    const s=getSelection();s.removeAllRanges();s.addRange(r);ed.focus({preventScroll:true});});
-  ed.addEventListener("scroll",later);
-  ed.addEventListener("input",later);
-  if(window.ResizeObserver)new ResizeObserver(later).observe(ed);
-  window.addEventListener("resize",later);
-  return{refresh};})();
-
-/* ================= BOLD / ITALIC / COLOUR ================= */
+/* ================= BOLD / ITALIC / UNDERLINE / COLOUR ================= */
 (function(){
   const ed=document.getElementById("tNote"),bar=document.getElementById("noteBar");
   const COLS=["#e8edf7","#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1","#ff5c5c"];
@@ -1513,6 +1318,7 @@ const Ink=(function(){
     document.execCommand(cmd,false,val);onEdit();markColour();}
   document.getElementById("fB").addEventListener("click",()=>run("bold"));
   document.getElementById("fI").addEventListener("click",()=>run("italic"));
+  document.getElementById("fU").addEventListener("click",()=>run("underline"));
   const sw=document.getElementById("swatches");
   COLS.forEach(c=>{const b=document.createElement("button");b.style.background=c;b.dataset.c=c;
     b.title=c===COLS[0]?"Normal colour":"Colour";b.addEventListener("click",()=>run("foreColor",c));sw.appendChild(b);});
