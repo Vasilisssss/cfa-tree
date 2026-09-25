@@ -99,7 +99,18 @@ text{pointer-events:none;user-select:none}
 label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 #tName,#tNote{width:100%;background:#0b1020;color:var(--txt);border:1px solid var(--edge);
   border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical}
-#tNote{min-height:150px;line-height:1.55;display:block}
+#tNote{min-height:150px;height:220px;line-height:1.55;display:block;overflow:auto;outline:none;
+  white-space:pre-wrap;overflow-wrap:break-word}
+#tNote:focus{border-color:#44567c}
+#tNote{position:relative}
+#tNote::after{content:"";position:absolute;left:0;top:var(--inkBottom,0px);width:1px;height:1px;pointer-events:none}
+#noteBar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0 6px}
+#noteBar .nbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
+#noteBar button{min-height:30px;padding:4px 10px;font-size:12px}
+#noteBar button.on{border-color:var(--c2);color:var(--c2);background:#12321c}
+#swatches{display:flex;gap:6px;align-items:center;margin-left:2px}
+#swatches button{width:24px;height:24px;min-height:24px;padding:0;border-radius:50%;
+  border:2px solid #0b1020;box-shadow:0 0 0 1px #3a4a68}
 #noteWrap{position:relative}
 #ink{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
 .hint{font-size:10.5px;color:var(--muted);line-height:1.55}
@@ -265,7 +276,16 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <h3>Edit node <button id="closeSide" onclick="closeSide()">×</button></h3>
   <div class="path" id="sPath"></div>
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
-  <div><label>Note / explanation</label><div id="noteWrap"><textarea id="tNote" oninput="onEdit()"></textarea><canvas id="ink"></canvas></div></div>
+  <div><label>Note / explanation</label>
+    <div id="noteBar">
+      <span class="nbl">Pen</span>
+      <button data-m="text" class="on">Text</button><button data-m="draw">Draw</button><button data-m="erase">Erase</button>
+      <span class="sep"></span>
+      <button id="fB" title="Bold" style="font-weight:700">B</button>
+      <button id="fI" title="Italic" style="font-style:italic;font-family:Georgia,serif">I</button>
+      <span id="swatches"></span>
+    </div>
+    <div id="noteWrap"><div id="tNote" contenteditable="true" oninput="onEdit()"></div><canvas id="ink"></canvas></div></div>
   <div class="grid">
     <button onclick="addNode('child')">+ Child</button>
     <button onclick="addNode('sibling')">+ Sibling</button>
@@ -293,7 +313,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>Several parents:</b> a node can belong to as many parents as you like, and they are all equal. Tap the node, press <b>🔗 Link</b>, then tap every node it should belong to. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) to finish. The node sits centred underneath all its parents.<br>
     <b>✂ Unlink</b> opens a list of its parents: tick the ones to disconnect, or tick <b>All</b>.<br>
     The <b>+ / −</b> button on any of its parents shows or hides it for all of them. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
-    <b>Stylus:</b> write or draw in the note box with the pen. Your finger and keyboard still type as normal. Use the pen's eraser end to rub out lines.<br><br>
+    <b>Note box:</b> <b>B</b> and <i>I</i> make selected text bold or italic, and the colour dots colour it. The <b>Pen</b> switch sets what the stylus does: <b>Text</b> (normal, including handwriting-to-text), <b>Draw</b> or <b>Erase</b>. Finger and keyboard always type.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -421,7 +441,7 @@ function readSeed(){try{const o=JSON.parse(document.getElementById("seed").textC
 const SEED=readSeed();
 const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
-function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};
+function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};if(n.rt)o.rt=1;
   if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;
   if(n.k&&n.k.s&&n.k.s.length)o.k={w:n.k.w,s:n.k.s.map(a=>a.slice())};return o;}
 function ROOT(){return LIB.topics[LIB.active];}
@@ -454,7 +474,7 @@ const Sync=(function(){
     document.getElementById("signOut").style.display=signedIn?"":"none";}
   const topicsJSON=()=>JSON.stringify(LIB.topics.map(clone));
   const when=t=>{try{return new Date(t).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});}catch(e){return"";}};
-  const typing=()=>window.INKING||/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||"");
+  const typing=()=>{const a=document.activeElement||{};return window.INKING||!!a.isContentEditable||/INPUT|TEXTAREA/.test(a.tagName||"");};
 
   function changed(){meta.dirty=true;saveMeta();if(!uid)return;
     pill("busy","Saving…");clearTimeout(timer);timer=setTimeout(()=>{timer=null;push();},900);}
@@ -935,14 +955,36 @@ function select(n){SEL=n;side.classList.remove("hide");
   else{const chain=[];let p=n.parent;while(p){chain.unshift(p.n);p=p.parent;}txt=chain.join("  ›  ");}
   document.getElementById("sPath").textContent=txt;
   document.getElementById("tName").value=n.n;
-  document.getElementById("tNote").value=n.d||"";
+  document.getElementById("tNote").innerHTML=noteHTML(n);
   drawLinkList(n);
   Ink.refresh();
   draw();}
 function closeSide(){side.classList.add("hide");}
+
+/* Notes are saved as simple HTML (bold, italic, colour, line breaks only).
+   Older plain-text notes (no rt flag) are shown as they were.            */
+function escHTML(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function cleanHTML(html){const t=document.createElement("template");t.innerHTML=html||"";
+  const out=document.createElement("div");
+  (function copy(src,dst){src.childNodes.forEach(n=>{
+    if(n.nodeType===3){dst.appendChild(document.createTextNode(n.nodeValue));return;}
+    if(n.nodeType!==1)return;const tag=n.tagName;
+    if(/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|TEMPLATE|LINK|META)$/.test(tag))return;
+    let el=null;
+    if(/^(B|STRONG|I|EM|BR|DIV|P)$/.test(tag))el=document.createElement(tag.toLowerCase());
+    else if(tag==="SPAN"||tag==="FONT"){const sp=document.createElement("span");
+      const c=tag==="FONT"?n.getAttribute("color"):n.style.color;if(c)sp.style.color=c;
+      if(tag==="SPAN"){if(n.style.fontWeight)sp.style.fontWeight=n.style.fontWeight;
+        if(n.style.fontStyle)sp.style.fontStyle=n.style.fontStyle;}
+      if(sp.getAttribute("style"))el=sp;}
+    if(el){dst.appendChild(el);if(tag!=="BR")copy(n,el);}else copy(n,dst);});})(t.content,out);
+  return out.innerHTML;}
+function noteHTML(n){return n.rt?cleanHTML(n.d):escHTML(n.d||"").replace(/\n/g,"<br>");}
+function noteText(n){if(!n.rt)return n.d||"";const t=document.createElement("template");t.innerHTML=n.d||"";return t.content.textContent;}
 function onEdit(){if(!SEL)return;
   SEL.n=document.getElementById("tName").value;
-  SEL.d=document.getElementById("tNote").value;
+  const ed=document.getElementById("tNote");
+  if(ed.textContent.trim()){SEL.d=cleanHTML(ed.innerHTML);SEL.rt=1;}else{SEL.d="";delete SEL.rt;}
   persist();drawTabs();draw();}
 function updateButtons(){const h=!!SEL;
   const g=id=>document.getElementById(id);
@@ -1182,7 +1224,7 @@ function setLevel(k){const r=ROOT();if(!r)return;
 function doSearch(q){const term=q.trim().toLowerCase(),r=ROOT();if(!r)return;prep(r);
   if(!term){HITS=null;draw();return;}
   const hits=new Set();
-  (function s(n){const t=(n.n+" "+(n.d||"")).toLowerCase();
+  (function s(n){const t=(n.n+" "+noteText(n)).toLowerCase();
     if(t.includes(term)){hits.add(n.id);
       (function up(k){if(isShared(k))delete k.sh;
         (k.P||[]).forEach(p=>{if(hits.has(p.id))return;hits.add(p.id);p.open=true;up(p);});})(n);}
@@ -1235,7 +1277,8 @@ async function resetAll(){if(!await ask("Discard every topic and start over with
 document.addEventListener("keydown",e=>{
   const pk=document.getElementById("pick");
   if(pk.classList.contains("show")){if(e.key==="Escape")pk.classList.remove("show");return;}
-  const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.type!=="checkbox";
+  const ae=document.activeElement;
+  const typing=ae.isContentEditable||(/INPUT|TEXTAREA/.test(ae.tagName)&&ae.type!=="checkbox");
   if(typing){if(e.key==="Escape")document.activeElement.blur();return;}
   if(e.key==="Escape"){
     if(DRAG){endDrag(false);return;}
@@ -1271,7 +1314,11 @@ const Ink=(function(){
     cv.style.width=w+"px";cv.style.height=h+"px";
     const W=Math.round(w*d),H=Math.round(h*d);
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
-    draw();}
+    fitRoom();draw();}
+  /* when the drawing is scaled up, make sure the box can scroll down to all of it */
+  function fitRoom(){const n=SEL;
+    let low=0;if(n&&n.k)n.k.s.forEach(p=>{for(let i=1;i<p.length;i+=2)if(p[i]>low)low=p[i];});
+    ta.style.setProperty("--inkBottom",Math.ceil(low*scale(n)+12)+"px");}
   function draw(){raf=0;const d=window.devicePixelRatio||1;
     cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
     const n=SEL;if(!n||!n.k||!n.k.s.length)return;const s=scale(n);
@@ -1287,13 +1334,17 @@ const Ink=(function(){
     if(keep.length!==n.k.s.length){if(!pen.snapped){snapshot();pen.snapped=true;}n.k.s=keep;}}
 
   /* pen hovering over the box: stop the browser from scrolling with the pen */
-  ta.addEventListener("pointerover",e=>{if(e.pointerType==="pen")ta.style.touchAction="none";});
+  let mode="text";
+  function setMode(m){mode=m;ta.style.touchAction="";
+    document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m));}
+  document.querySelectorAll("#noteBar [data-m]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.m)));
+  ta.addEventListener("pointerover",e=>{if(e.pointerType==="pen"&&mode!=="text")ta.style.touchAction="none";});
   ta.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ta.style.touchAction="";});
   ta.addEventListener("pointerdown",e=>{
     if(e.pointerType!=="pen"){ta.style.touchAction="";return;}
-    if(!SEL)return;
+    if(!SEL||mode==="text")return;
     e.preventDefault();window.INKING=true;
-    const erase=!!(e.buttons&32)||e.button===5;
+    const erase=mode==="erase"||!!(e.buttons&32)||e.button===5;
     pen={id:e.pointerId,erase,node:SEL,snapped:false};
     try{ta.setPointerCapture(e.pointerId);}catch(err){}
     if(erase)eraseAt(pt(e,SEL));
@@ -1314,12 +1365,12 @@ const Ink=(function(){
     try{ta.releasePointerCapture(e.pointerId);}catch(err){}
     if(n.k&&!n.k.s.length)delete n.k;
     if(changed){persist();updateButtons();}
-    later();}
+    fitRoom();later();}
   ta.addEventListener("pointerup",finish);
   ta.addEventListener("pointercancel",finish);
   /* iPad / Android: block the page scroll a pen touch would otherwise start */
   const block=e=>{const t=e.touches&&e.touches[0];
-    if(pen||(t&&t.touchType==="stylus"))e.preventDefault();};
+    if(pen||(mode!=="text"&&t&&t.touchType==="stylus"))e.preventDefault();};
   ta.addEventListener("touchstart",block,{passive:false});
   ta.addEventListener("touchmove",block,{passive:false});
 
@@ -1327,6 +1378,31 @@ const Ink=(function(){
   if(window.ResizeObserver)new ResizeObserver(size).observe(ta);
   window.addEventListener("resize",size);
   return{refresh:size};})();
+
+/* ================= BOLD / ITALIC / COLOUR ================= */
+(function(){
+  const ed=document.getElementById("tNote"),bar=document.getElementById("noteBar");
+  const COLS=["#e8edf7","#f5b301","#4cc9f0","#7ee787","#ff9f6b","#c8a2ff","#ff8fb1","#ff5c5c"];
+  let range=null;
+  document.addEventListener("selectionchange",()=>{const s=getSelection();
+    if(s.rangeCount&&ed.contains(s.anchorNode))range=s.getRangeAt(0).cloneRange();});
+  /* tapping a button must not take the cursor/selection out of the note */
+  bar.addEventListener("pointerdown",e=>{if(e.target.closest("button"))e.preventDefault();});
+  bar.addEventListener("mousedown",e=>{if(e.target.closest("button"))e.preventDefault();});
+  function run(cmd,val){ed.focus({preventScroll:true});
+    if(range){const s=getSelection();s.removeAllRanges();s.addRange(range);}
+    try{document.execCommand("styleWithCSS",false,false);}catch(e){}
+    document.execCommand(cmd,false,val);onEdit();}
+  document.getElementById("fB").addEventListener("click",()=>run("bold"));
+  document.getElementById("fI").addEventListener("click",()=>run("italic"));
+  const sw=document.getElementById("swatches");
+  COLS.forEach(c=>{const b=document.createElement("button");b.style.background=c;
+    b.title=c===COLS[0]?"Normal colour":"Colour";b.addEventListener("click",()=>run("foreColor",c));sw.appendChild(b);});
+  /* pasted text comes in plain, so it can't bring in odd formatting */
+  ed.addEventListener("paste",e=>{e.preventDefault();
+    const t=(e.clipboardData||window.clipboardData).getData("text/plain");
+    document.execCommand("insertText",false,t);});
+})();
 
 /* ================= BOOT ================= */
 LIB=load();drawTabs();draw();fit();
