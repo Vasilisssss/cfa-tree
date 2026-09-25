@@ -99,7 +99,9 @@ text{pointer-events:none;user-select:none}
 label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 #tName,#tNote{width:100%;background:#0b1020;color:var(--txt);border:1px solid var(--edge);
   border-radius:8px;padding:9px;font-size:13px;font-family:inherit;resize:vertical}
-#tNote{min-height:150px;line-height:1.55}
+#tNote{min-height:150px;line-height:1.55;display:block}
+#noteWrap{position:relative}
+#ink{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
 .hint{font-size:10.5px;color:var(--muted);line-height:1.55}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radius:4px;
@@ -263,7 +265,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <h3>Edit node <button id="closeSide" onclick="closeSide()">×</button></h3>
   <div class="path" id="sPath"></div>
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
-  <div><label>Note / explanation</label><textarea id="tNote" oninput="onEdit()"></textarea></div>
+  <div><label>Note / explanation</label><div id="noteWrap"><textarea id="tNote" oninput="onEdit()"></textarea><canvas id="ink"></canvas></div></div>
   <div class="grid">
     <button onclick="addNode('child')">+ Child</button>
     <button onclick="addNode('sibling')">+ Sibling</button>
@@ -291,6 +293,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>Several parents:</b> a node can belong to as many parents as you like, and they are all equal. Tap the node, press <b>🔗 Link</b>, then tap every node it should belong to. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) to finish. The node sits centred underneath all its parents.<br>
     <b>✂ Unlink</b> opens a list of its parents: tick the ones to disconnect, or tick <b>All</b>.<br>
     The <b>+ / −</b> button on any of its parents shows or hides it for all of them. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
+    <b>Stylus:</b> write or draw in the note box with the pen. Your finger and keyboard still type as normal. Use the pen's eraser end to rub out lines.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -419,7 +422,8 @@ const SEED=readSeed();
 const DEFAULT=SEED.topics[0]||{n:"New Topic",d:"",open:true,c:[]};
 
 function clone(n){const o={u:n.u,n:n.n,d:n.d||"",open:n.open,c:(n.c||[]).map(clone)};
-  if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;return o;}
+  if(n.L&&n.L.length)o.L=n.L.slice();if(n.sh===false)o.sh=false;
+  if(n.k&&n.k.s&&n.k.s.length)o.k={w:n.k.w,s:n.k.s.map(a=>a.slice())};return o;}
 function ROOT(){return LIB.topics[LIB.active];}
 function blankTopic(name){return{n:name||"New Topic",d:"",open:true,c:[]};}
 function fmtStamp(s){const m=/^save-(\d+)$/.exec(s||"");if(!m)return null;
@@ -450,7 +454,7 @@ const Sync=(function(){
     document.getElementById("signOut").style.display=signedIn?"":"none";}
   const topicsJSON=()=>JSON.stringify(LIB.topics.map(clone));
   const when=t=>{try{return new Date(t).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});}catch(e){return"";}};
-  const typing=()=>/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||"");
+  const typing=()=>window.INKING||/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||"");
 
   function changed(){meta.dirty=true;saveMeta();if(!uid)return;
     pill("busy","Saving…");clearTimeout(timer);timer=setTimeout(()=>{timer=null;push();},900);}
@@ -933,6 +937,7 @@ function select(n){SEL=n;side.classList.remove("hide");
   document.getElementById("tName").value=n.n;
   document.getElementById("tNote").value=n.d||"";
   drawLinkList(n);
+  Ink.refresh();
   draw();}
 function closeSide(){side.classList.add("hide");}
 function onEdit(){if(!SEL)return;
@@ -1249,6 +1254,79 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="0")fit();
   else if(e.ctrlKey&&e.key==="ArrowRight")switchTopic((LIB.active+1)%LIB.topics.length);
   else if(e.ctrlKey&&e.key==="ArrowLeft")switchTopic((LIB.active-1+LIB.topics.length)%LIB.topics.length);});
+
+/* ================= STYLUS INK IN THE NOTE BOX =================
+   Pen touches draw on top of the note text. Finger and keyboard type as usual.
+   The pen's eraser end (or eraser button) rubs out any line it touches.
+   Lines are stored on the node as k = {w: box width when drawn, s: [[x,y,x,y,...], ...]}
+   and scaled to the current box width.                                     */
+const Ink=(function(){
+  const ta=document.getElementById("tNote"),cv=document.getElementById("ink"),cx=cv.getContext("2d");
+  let pen=null,raf=0;
+  const scale=n=>(n&&n.k&&n.k.w)?ta.clientWidth/n.k.w:1;
+  function pt(e,n){const r=ta.getBoundingClientRect(),s=scale(n);
+    return[Math.round((e.clientX-r.left)/s),Math.round((e.clientY-r.top+ta.scrollTop)/s)];}
+  function size(){const w=ta.offsetWidth,h=ta.offsetHeight,d=window.devicePixelRatio||1;
+    cv.style.left=ta.offsetLeft+"px";cv.style.top=ta.offsetTop+"px";
+    cv.style.width=w+"px";cv.style.height=h+"px";
+    const W=Math.round(w*d),H=Math.round(h*d);
+    if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+    draw();}
+  function draw(){raf=0;const d=window.devicePixelRatio||1;
+    cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
+    const n=SEL;if(!n||!n.k||!n.k.s.length)return;const s=scale(n);
+    cx.setTransform(d,0,0,d,0,-ta.scrollTop*d);
+    cx.lineCap="round";cx.lineJoin="round";cx.strokeStyle="#e8edf7";cx.lineWidth=2.2*s;
+    n.k.s.forEach(p=>{cx.beginPath();cx.moveTo(p[0]*s,p[1]*s);
+      if(p.length===2)cx.lineTo(p[0]*s+0.1,p[1]*s);
+      for(let i=2;i<p.length;i+=2)cx.lineTo(p[i]*s,p[i+1]*s);cx.stroke();});}
+  const later=()=>{if(!raf)raf=requestAnimationFrame(draw);};
+  function eraseAt(p){const n=pen.node;if(!n.k)return;const R=10/scale(n);
+    const keep=n.k.s.filter(st=>{for(let i=0;i<st.length;i+=2)
+      if(Math.hypot(st[i]-p[0],st[i+1]-p[1])<R)return false;return true;});
+    if(keep.length!==n.k.s.length){if(!pen.snapped){snapshot();pen.snapped=true;}n.k.s=keep;}}
+
+  /* pen hovering over the box: stop the browser from scrolling with the pen */
+  ta.addEventListener("pointerover",e=>{if(e.pointerType==="pen")ta.style.touchAction="none";});
+  ta.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ta.style.touchAction="";});
+  ta.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="pen"){ta.style.touchAction="";return;}
+    if(!SEL)return;
+    e.preventDefault();window.INKING=true;
+    const erase=!!(e.buttons&32)||e.button===5;
+    pen={id:e.pointerId,erase,node:SEL,snapped:false};
+    try{ta.setPointerCapture(e.pointerId);}catch(err){}
+    if(erase)eraseAt(pt(e,SEL));
+    else{snapshot();pen.snapped=true;
+      if(!SEL.k)SEL.k={w:ta.clientWidth,s:[]};
+      pen.st=pt(e,SEL);SEL.k.s.push(pen.st);}
+    later();});
+  ta.addEventListener("pointermove",e=>{
+    if(!pen||e.pointerId!==pen.id)return;e.preventDefault();
+    const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+    (evs.length?evs:[e]).forEach(ev=>{const p=pt(ev,pen.node);
+      if(pen.erase)eraseAt(p);
+      else{const st=pen.st,lx=st[st.length-2],ly=st[st.length-1];
+        if(Math.hypot(p[0]-lx,p[1]-ly)>=1.5)st.push(p[0],p[1]);}});
+    later();});
+  function finish(e){if(!pen||e.pointerId!==pen.id)return;
+    const n=pen.node,changed=pen.snapped;pen=null;window.INKING=false;
+    try{ta.releasePointerCapture(e.pointerId);}catch(err){}
+    if(n.k&&!n.k.s.length)delete n.k;
+    if(changed){persist();updateButtons();}
+    later();}
+  ta.addEventListener("pointerup",finish);
+  ta.addEventListener("pointercancel",finish);
+  /* iPad / Android: block the page scroll a pen touch would otherwise start */
+  const block=e=>{const t=e.touches&&e.touches[0];
+    if(pen||(t&&t.touchType==="stylus"))e.preventDefault();};
+  ta.addEventListener("touchstart",block,{passive:false});
+  ta.addEventListener("touchmove",block,{passive:false});
+
+  ta.addEventListener("scroll",later);
+  if(window.ResizeObserver)new ResizeObserver(size).observe(ta);
+  window.addEventListener("resize",size);
+  return{refresh:size};})();
 
 /* ================= BOOT ================= */
 LIB=load();drawTabs();draw();fit();
