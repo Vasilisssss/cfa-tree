@@ -315,7 +315,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>Several parents:</b> a node can belong to as many parents as you like, and they are all equal. Tap the node, press <b>🔗 Link</b>, then tap every node it should belong to. Tap one again to remove it. Press <b>✓ Done</b> (or tap empty space) to finish. The node sits centred underneath all its parents.<br>
     <b>✂ Unlink</b> opens a list of its parents: tick the ones to disconnect, or tick <b>All</b>.<br>
     The <b>+ / −</b> button on any of its parents shows or hides it for all of them. Deleting one of its parents keeps the node — it just stays under the others.<br><br>
-    <b>Note box:</b> <b>B</b> and <i>I</i> make selected text bold or italic, and the colour dots colour it. The <b>Pen</b> switch sets what the stylus does: <b>Text</b> (normal, including handwriting-to-text), <b>Draw</b> or <b>Erase</b>. Finger and keyboard always type.<br><br>
+    <b>Note box:</b> <b>B</b> and <i>I</i> make selected text bold or italic, and the colour dots colour it. The <b>Pen</b> switch sets what the stylus (and on a computer, the mouse) does: <b>Text</b> (normal, including handwriting-to-text), <b>Draw</b> or <b>Erase</b>. Finger and keyboard always type.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -1354,7 +1354,11 @@ const Ink=(function(){
   function path(c,p,sc,ox,oy){c.beginPath();c.moveTo(ox+p[0]*sc,oy+p[1]*sc);
     if(p.length===2)c.lineTo(ox+p[0]*sc+0.1,oy+p[1]*sc);
     for(let i=2;i<p.length;i+=2)c.lineTo(ox+p[i]*sc,oy+p[i+1]*sc);c.stroke();}
-  function hydrate(){blocks().forEach(b=>{if(b._ok)return;b._ok=1;b.contentEditable="false";
+  /* every drawing space always has a normal line after it, so you can keep writing below it */
+  function lineAfter(b){let n=b.nextElementSibling;
+    if(!n||isInk(n)){n=document.createElement("div");n.appendChild(document.createElement("br"));b.after(n);}
+    return n;}
+  function hydrate(){blocks().forEach(b=>{lineAfter(b);if(b._ok)return;b._ok=1;b.contentEditable="false";
     b.className="inkb";b.appendChild(document.createElement("canvas"));});}
   function drawBlock(b){const cv=b.querySelector("canvas");if(!cv)return;
     const data=SEL&&SEL.k&&SEL.k.b&&SEL.k.b[b.dataset.ink];
@@ -1408,6 +1412,7 @@ const Ink=(function(){
         b=document.createElement("div");b.setAttribute("data-ink",id);hit[0].before(b);hydrate();}
       const data=k.b[b.dataset.ink];
       hit.forEach(x=>{if(x!==b&&blank(x))x.remove();});
+      lineAfter(b);
       const w=b.clientWidth,bx=b.offsetLeft,by=b.offsetTop;
       data.s.push(p.map((v,i)=>Math.round((i%2?(v-by):(v-bx))/w*10000)/10000));
       const need=(y1-by+6)/w;if(need>data.r)data.r=need;
@@ -1443,7 +1448,9 @@ const Ink=(function(){
   ed.addEventListener("pointerover",e=>{if(e.pointerType==="pen"&&mode!=="text")ed.style.touchAction="none";});
   ed.addEventListener("pointerleave",e=>{if(e.pointerType==="pen"&&!pen)ed.style.touchAction="";});
   ed.addEventListener("pointerdown",e=>{
-    if(e.pointerType!=="pen"){ed.style.touchAction="";return;}
+    /* the pen draws on Draw/Erase; on a computer the mouse/trackpad does too */
+    const mouse=e.pointerType==="mouse"&&e.button===0;
+    if(e.pointerType!=="pen"&&!mouse){ed.style.touchAction="";return;}
     if(!SEL||mode==="text")return;
     e.preventDefault();window.INKING=true;
     const er=mode==="erase"||!!(e.buttons&32)||e.button===5;
@@ -1474,6 +1481,10 @@ const Ink=(function(){
   ed.addEventListener("touchstart",block,{passive:false});
   ed.addEventListener("touchmove",block,{passive:false});
 
+  /* tapping a drawing (pen on Text, finger or mouse) puts the cursor on the line right after it */
+  ed.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-ink]");
+    if(!b||pen||mode!=="text")return;const n=lineAfter(b);const r=document.createRange();r.setStart(n,0);r.collapse(true);
+    const s=getSelection();s.removeAllRanges();s.addRange(r);ed.focus({preventScroll:true});});
   ed.addEventListener("scroll",later);
   ed.addEventListener("input",later);
   if(window.ResizeObserver)new ResizeObserver(later).observe(ed);
