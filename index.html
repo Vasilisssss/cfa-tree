@@ -274,6 +274,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
   <div><label>Title</label><input id="tName" oninput="onEdit()"></div>
   <div><label>Note / explanation</label>
     <div id="noteBar">
+      <button id="fArrow" title="Insert arrow">➜</button>
       <button id="fB" title="Bold" style="font-weight:700">B</button>
       <button id="fI" title="Italic" style="font-style:italic;font-family:Georgia,serif">I</button>
       <button id="fU" title="Underline" style="text-decoration:underline">U</button>
@@ -1299,7 +1300,7 @@ document.addEventListener("keydown",e=>{
 /* ================= BOLD / ITALIC / UNDERLINE / COLOUR ================= */
 (function(){
   const ed=document.getElementById("tNote"),bar=document.getElementById("noteBar");
-  const COLS=["#e8edf7","#4cc9f0","#ff5c5c","#fff200"];   /* white (normal), blue, red, yellow */
+  const COLS=["#e8edf7","#4cc9f0","#ff5c5c","#ffff00"];   /* white (normal), blue, red, yellow */
   let range=null;
   /* show which colour the text at the cursor has */
   const rgb=v=>(String(v).match(/\d+/g)||[]).slice(0,3).join(",");
@@ -1324,6 +1325,7 @@ document.addEventListener("keydown",e=>{
     if(!inside&&range){s.removeAllRanges();s.addRange(range);}
     try{document.execCommand("styleWithCSS",false,false);}catch(e){}
     document.execCommand(cmd,false,val);onEdit();markColour();}
+  document.getElementById("fArrow").addEventListener("click",()=>run("insertText","\u279C"));
   document.getElementById("fB").addEventListener("click",()=>run("bold"));
   document.getElementById("fI").addEventListener("click",()=>run("italic"));
   document.getElementById("fU").addEventListener("click",()=>run("underline"));
