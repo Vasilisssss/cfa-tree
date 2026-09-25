@@ -269,7 +269,7 @@ code{background:#0a0f1c;border:1px solid var(--edge);padding:1px 5px;border-radi
     <b>On a tablet:</b> drag with one finger to pan, pinch with two to zoom. Double-tap the background to fit everything.<br><br>
     <b>To move a node:</b> press and hold it for a moment, then drag — a green outline shows where it will land. Drop <i>on</i> a node to nest it inside; drop <i>beside</i> one to slot it in next to it.<br><br>
     For long moves across a big tree, use <b>✋ Pick up</b> on the node, scroll to the destination, tap it, then <b>⤵ Drop into</b>. <b>Indent / Outdent</b> shift a node one level without dragging.<br><br>
-    <b>Two parents:</b> tap the lower node, press <b>🔗 Link</b>, then tap the second node it belongs under. A dashed line connects them. Remove it with <b>× Unlink</b> in this panel.<br><br>
+    <b>Two parents:</b> tap the lower node, press <b>🔗 Link</b>, then tap the second node it belongs under. A line connects them. Remove it with <b>× Unlink</b> in this panel.<br><br>
     <b>Topics</b> are the tabs at the top — tap <b>+ New topic</b> to start a fresh tree for another reading.<br><br>
     <b>Panel size:</b> drag the panel's edge to make it bigger or smaller. Double-click the handle to reset it.<br><br>
     Sign in with Google once on each device and everything syncs automatically — phone, tablet and computer all show the latest version. The dot next to the title shows the sync state. Your notes are stored privately in your own Firebase database, never in this page.
@@ -538,7 +538,7 @@ function draw(){
     if(HITS&&!HITS.has(n.id))path.setAttribute("class","dim");
     gL.appendChild(path);});
 
-  /* extra (second-parent) links, drawn dashed */
+  /* extra (second-parent) links, drawn like normal links */
   const byU=new Map();vis.forEach(n=>byU.set(n.u,n));
   vis.forEach(n=>{(n.L||[]).forEach(u=>{const p=byU.get(u);if(!p||p===n)return;
     const y1=p.y+p.h,y2=n.y,my=(y1+y2)/2;
@@ -546,8 +546,7 @@ function draw(){
     path.setAttribute("d","M"+p.x+","+y1+" C"+p.x+","+my+" "+n.x+","+my+" "+n.x+","+y2);
     path.setAttribute("fill","none");
     path.setAttribute("stroke",STK[Math.min(n.depth,5)]);
-    path.setAttribute("stroke-opacity",".8");path.setAttribute("stroke-width","1.9");
-    path.setAttribute("stroke-dasharray","7 5");
+    path.setAttribute("stroke-opacity",".5");path.setAttribute("stroke-width","1.7");
     if(HITS&&!(HITS.has(n.id)&&HITS.has(p.id)))path.setAttribute("class","dim");
     gL.appendChild(path);});});
 
